@@ -1,0 +1,28 @@
+{
+  "name": "gtd-viz",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "data:download": "node --env-file=.env scripts/download-kaggle.mjs",
+    "test": "vitest run",
+    "coverage:tasks": "tsx scripts/coverage-report.ts",
+    "coverage:tasks:strict": "tsx scripts/coverage-report.ts --strict"
+  },
+  "dependencies": {
+    "d3": "^7.9.0"
+  },
+  "devDependencies": {
+    "@types/d3": "^7.4.3",
+    "@types/node": "^26.6.4",
+    "jsdom": "^29.1.1",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.2",
+    "vitest": "^5.0.3"
+  }
+}
