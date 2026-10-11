@@ -47,8 +47,8 @@ Denmark,DNK,direct,Nom ISO identique,41
 Djibouti,DJI,direct,Nom ISO identique,22
 Dominica,DMA,direct,Nom ISO identique,3
 Dominican Republic,DOM,direct,Nom ISO identique,90
-East Germany (GDR),,not_representable,État réunifié en 1990 ; territoire inclus dans DEU,38
-East Timor,,not_representable,Nom de TLS avant 2002 (occupation indonésienne 1975-1999) ; même territoire,10
+East Germany (GDR),DEU,successor,État réunifié en 1990 ; territoire inclus dans DEU,38
+East Timor,TLS,successor,Nom de TLS avant 2002 (occupation indonésienne 1975-1999) ; même territoire,10
 Ecuador,ECU,direct,Nom ISO identique,220
 Egypt,EGY,direct,Nom ISO identique,2479
 El Salvador,SLV,direct,Nom ISO identique,5320
@@ -60,7 +60,7 @@ Falkland Islands,FLK,direct,Nom ISO « Falkland Islands (Malvinas) » ; souverai
 Fiji,FJI,direct,Nom ISO identique,17
 Finland,FIN,direct,Nom ISO identique,20
 France,FRA,direct,Nom ISO identique,2693
-French Guiana,,not_representable,Code ISO GUF sans forme propre dans world-atlas 50m,7
+French Guiana,FRA,part_of,Code ISO GUF sans forme propre dans world-atlas 50m ; dessiné dans la forme de FRA,7
 French Polynesia,PYF,direct,Nom ISO identique,3
 Gabon,GAB,direct,Nom ISO identique,8
 Gambia,GMB,direct,Nom ISO identique,3
@@ -69,7 +69,7 @@ Germany,DEU,direct,Nom ISO identique,735
 Ghana,GHA,direct,Nom ISO identique,19
 Greece,GRC,direct,Nom ISO identique,1275
 Grenada,GRD,direct,Nom ISO identique,5
-Guadeloupe,,not_representable,Code ISO GLP sans forme propre dans world-atlas 50m,56
+Guadeloupe,FRA,part_of,Code ISO GLP sans forme propre dans world-atlas 50m ; dessiné dans la forme de FRA,56
 Guatemala,GTM,direct,Nom ISO identique,2050
 Guinea,GIN,direct,Nom ISO identique,25
 Guinea-Bissau,GNB,direct,Nom ISO identique,9
@@ -112,7 +112,7 @@ Malaysia,MYS,direct,Nom ISO identique,99
 Maldives,MDV,direct,Nom ISO identique,22
 Mali,MLI,direct,Nom ISO identique,566
 Malta,MLT,direct,Nom ISO identique,23
-Martinique,,not_representable,Code ISO MTQ sans forme propre dans world-atlas 50m,12
+Martinique,FRA,part_of,Code ISO MTQ sans forme propre dans world-atlas 50m ; dessiné dans la forme de FRA,12
 Mauritania,MRT,direct,Nom ISO identique,18
 Mauritius,MUS,direct,Nom ISO identique,2
 Mexico,MEX,direct,Nom ISO identique,524
@@ -125,26 +125,26 @@ Namibia,NAM,direct,Nom ISO identique,151
 Nepal,NPL,direct,Nom ISO identique,1215
 Netherlands,NLD,direct,Nom ISO identique,130
 New Caledonia,NCL,direct,Nom ISO identique,31
-New Hebrides,,not_representable,Nom de VUT avant 1980 ; même territoire,1
+New Hebrides,VUT,successor,Nom de VUT avant 1980 ; même territoire,1
 New Zealand,NZL,direct,Nom ISO identique,20
 Nicaragua,NIC,direct,Nom ISO identique,1970
 Niger,NER,direct,Nom ISO identique,154
 Nigeria,NGA,direct,Nom ISO identique,3907
 North Korea,PRK,direct,Nom ISO identique,1
-North Yemen,,not_representable,État unifié en 1990 ; territoire inclus dans YEM,6
+North Yemen,YEM,successor,État unifié en 1990 ; territoire inclus dans YEM,6
 Norway,NOR,direct,Nom ISO identique,19
 Pakistan,PAK,direct,Nom ISO identique,14368
 Panama,PAN,direct,Nom ISO identique,127
 Papua New Guinea,PNG,direct,Nom ISO identique,89
 Paraguay,PRY,direct,Nom ISO identique,114
-People's Republic of the Congo,,not_representable,Nom de COG jusqu'en 1991 ; même territoire,4
+People's Republic of the Congo,COG,successor,Nom de COG jusqu'en 1991 ; même territoire,4
 Peru,PER,direct,Nom ISO identique,6096
 Philippines,PHL,direct,Nom ISO identique,6908
 Poland,POL,direct,Nom ISO identique,39
 Portugal,PRT,direct,Nom ISO identique,140
 Qatar,QAT,direct,Nom ISO identique,7
 Republic of the Congo,COG,direct,Nom ISO identique,36
-Rhodesia,,not_representable,Nom de ZWE avant 1980 ; même territoire,83
+Rhodesia,ZWE,successor,Nom de ZWE avant 1980 ; même territoire,83
 Romania,ROU,direct,Nom ISO identique,6
 Russia,RUS,direct,Nom courant de « Russian Federation »,2194
 Rwanda,RWA,direct,Nom ISO identique,159
@@ -162,8 +162,8 @@ Somalia,SOM,direct,Nom ISO identique,4142
 South Africa,ZAF,direct,Nom ISO identique,2016
 South Korea,KOR,direct,Nom ISO identique,38
 South Sudan,SSD,direct,Nom ISO identique,225
-South Vietnam,,not_representable,État disparu en 1976 ; territoire inclus dans VNM,1
-South Yemen,,not_representable,État unifié en 1990 ; territoire inclus dans YEM,2
+South Vietnam,VNM,successor,État disparu en 1976 ; territoire inclus dans VNM,1
+South Yemen,YEM,successor,État unifié en 1990 ; territoire inclus dans YEM,2
 Soviet Union,,not_representable,État dissous en 1991 ; territoire réparti entre 15 États,78
 Spain,ESP,direct,Nom ISO identique,3249
 Sri Lanka,LKA,direct,Nom ISO identique,3022
@@ -196,11 +196,11 @@ Vatican City,VAT,direct,Nom ISO « Holy See (Vatican City State) »,1
 Venezuela,VEN,direct,Nom ISO identique,293
 Vietnam,VNM,direct,Nom ISO identique,12
 Wallis and Futuna,WLF,direct,Nom ISO identique,1
-West Bank and Gaza Strip,,not_representable,"Territoire du code ISO PSE (« Palestine, State of ») ; statut contesté",2227
-West Germany (FRG),,not_representable,État réunifié en 1990 ; territoire inclus dans DEU,541
+West Bank and Gaza Strip,PSE,direct,"Territoire du code ISO PSE (« Palestine, State of ») ; statut contesté",2227
+West Germany (FRG),DEU,successor,État réunifié en 1990 ; territoire inclus dans DEU,541
 Western Sahara,ESH,direct,Nom ISO identique,5
 Yemen,YEM,direct,Nom ISO identique,3347
 Yugoslavia,,not_representable,"État dissous ; territoire réparti entre SRB, HRV, BIH, SVN, MKD, MNE et Kosovo",203
-Zaire,,not_representable,Nom de COD de 1971 à 1997 ; même territoire,50
+Zaire,COD,successor,Nom de COD de 1971 à 1997 ; même territoire,50
 Zambia,ZMB,direct,Nom ISO identique,62
 Zimbabwe,ZWE,direct,Nom ISO identique,101

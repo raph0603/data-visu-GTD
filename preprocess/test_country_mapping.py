@@ -15,10 +15,11 @@ def rule(name: str, iso3: str, policy: str, incidents: int) -> CountryRule:
 
 VALID = {
     "France": rule("France", "FRA", "direct", 10),
+    "Guadeloupe": rule("Guadeloupe", "FRA", "part_of", 4),
     "West Germany (FRG)": rule("West Germany (FRG)", "DEU", "successor", 3),
     "International": rule("International", "", "not_representable", 1),
 }
-VALID_COUNTS = {"France": 10, "West Germany (FRG)": 3, "International": 1}
+VALID_COUNTS = {"France": 10, "Guadeloupe": 4, "West Germany (FRG)": 3, "International": 1}
 
 
 def test_accepts_a_consistent_mapping():

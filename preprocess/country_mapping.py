@@ -10,7 +10,12 @@ from dataclasses import dataclass
 from pathlib import Path
 
 MAPPING_CSV = Path(__file__).resolve().parent / "mapping_pays.csv"
-POLICIES = frozenset({"direct", "successor", "not_representable"})
+
+# direct: the GTD name designates the country of iso3.
+# successor: a former state whose whole territory lies in today's iso3.
+# part_of: a territory drawn inside the shape of iso3 (e.g. Guadeloupe in France).
+# not_representable: no single shape; counted, never drawn.
+POLICIES = frozenset({"direct", "successor", "part_of", "not_representable"})
 
 
 @dataclass(frozen=True)
