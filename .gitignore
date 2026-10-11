@@ -10,3 +10,8 @@ dist/
 
 # Raw Kaggle exports (GTD CSV) are never committed.
 data/raw/
+
+# Python virtual environment and caches (preprocess/).
+.venv/
+__pycache__/
+.pytest_cache/
