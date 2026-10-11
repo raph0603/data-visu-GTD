@@ -316,3 +316,191 @@ deviendraient des caractères de contrôle dans `incidents/<iso3>.json`.
 **Vérification** : `python -m pytest preprocess`. Le test
 `test_text_has_no_c1_control_characters` passe en cp1252. En latin-1, il échoue :
 2 357 résumés contiennent alors des caractères de contrôle.
+
+## D8. Contrat de données `src/core/contracts.ts`
+
+**Statut** : adoptée le 2026-10-11, à faire valider par l'équipe. C'est un
+nouveau fichier de `src/core/` : tous les modules liront ces formats.
+
+**Décision** : cinq fichiers sous `public/data/<dataset>/`, chacun avec un
+type, un validateur et une fonction de chargement (`fetchMeta`,
+`fetchCountryYear`, etc.). Les règles communes :
+
+- **Séries alignées sur un axe d'années.** Chaque série est un tableau indexé
+  par `année - years.first`.
+- **`null` exactement sur les années sans aucune ligne** (`meta.years.gaps`,
+  ici 1993). Ailleurs, c'est une valeur mesurée, éventuellement 0.
+- **Les victimes séparent `sum` et `known`.** `sum` est la somme des valeurs
+  connues, `known` le nombre d'incidents dont la valeur est connue.
+- **`country_year.json` contient les 235 pays dessinables**, y compris ceux
+  sans incident, avec des zéros explicites. Les incidents sans pays
+  représentable sont dans `notRepresentable`.
+- **`top_events.json` garde, par pays et par année, les 5 incidents les plus
+  meurtriers.**
+- **`incidents/<iso3>.json` est stocké en colonnes**, avec des dictionnaires
+  pour le type d'attaque, le type de cible et le groupe.
+
+**Arguments** :
+
+- **Tableaux alignés**. On accède à une année par son index, et les sommes
+  préfixées se construisent directement. Poids mesuré : 26 Ko gzip pour 235
+  pays × 48 ans. L'alternative, un format long avec une ligne
+  `{iso3, year, …}` par pays et par année, répète les clés 11 280 fois ; son
+  poids n'a pas été mesuré.
+- **`null` plutôt que 0 en 1993**. La règle « jamais de 0 pour 1993 » ne peut
+  pas être violée par erreur : le validateur refuse un 0 sur une année sans
+  données, avec le message `entities.FRA.incidents: 1993 must be null`.
+- **`sum` et `known`**. Un nombre de morts inconnu n'est jamais lu comme 0, et
+  l'interface peut afficher la part connue (`knownShare`).
+- **Tous les pays dessinables présents**. Un pays absent du fichier serait
+  ambigu : pas de donnée, ou zéro ? Ici, une clé absente donne NaN et un zéro
+  est toujours écrit.
+- **Top 5 par année**. Le top 5 exact de n'importe quelle fenêtre fait partie
+  de l'union des top 5 annuels : un incident du top 5 de la fenêtre est
+  forcément dans le top 5 de son année. Coût mesuré : 12 847 incidents,
+  262 Ko gzip, chargés à la demande.
+- **Colonnes et dictionnaires**. Les chaînes répétées (type d'attaque, groupe)
+  sont stockées une seule fois par fichier.
+- **Validation au chargement**. Elle coûte O(taille) une fois. Une erreur du
+  preprocess apparaît au chargement, avec le fichier et le chemin fautif, au
+  lieu de produire une carte fausse.
+
+**Alternatives rejetées** :
+
+- Top 10 global par pays : une fenêtre de quelques années pourrait n'en
+  contenir aucun.
+- Calculer le top à partir de `incidents/<iso3>.json` : les 4 558 incidents
+  sans coordonnées en seraient exclus, et il faudrait charger 1,1 Mo pour
+  l'Irak.
+- Zéro implicite pour les pays absents du fichier : on ne pourrait plus
+  distinguer un zéro mesuré d'une donnée manquante.
+
+**Vérification** : `npm test`, qui exécute `src/core/contracts.test.ts`
+(26 tests sur des cas valides et invalides) et
+`src/core/contracts.data.test.ts` (les 237 fichiers réels respectent le
+contrat ; le test est sauté avec son motif si les fichiers n'ont pas été
+générés).
+
+**Fichiers** : `src/core/contracts.ts`, `src/core/contracts.test.ts`,
+`src/core/contracts.data.test.ts`.
+
+## D9. Index de fenêtres `YearlyIndex` (`src/core/series.ts`)
+
+**Statut** : adoptée le 2026-10-11 ; nouveau fichier de `src/core/`.
+
+**Décision** : `YearlyIndex` construit des sommes préfixées une seule fois, en
+O(pays × années). `window(clé, métrique, de, à)` répond ensuite en O(1).
+
+**Ce que renvoie une fenêtre** :
+
+| Situation | Résultat |
+|---|---|
+| Fenêtre faite uniquement d'années sans données, hors période ou clé inconnue | NaN |
+| Incidents présents mais aucune valeur de victimes connue | NaN |
+| Aucun incident | 0 |
+| Victimes connues dont la somme vaut 0 | 0 |
+| Autres cas | La somme ; pour les victimes, `knownShare` donne la part connue |
+
+**Argument** : le rang du tooltip (T1) et la variation de rang (T12) demandent
+la valeur de tous les pays à chaque mouvement du curseur. En O(1), le coût ne
+dépend pas de la largeur de la fenêtre. Le gain absolu reste modeste : une
+somme directe coûterait environ 11 000 additions par mise à jour.
+
+**Alternative rejetée** : additionner les années à chaque requête, en O(années)
+par pays.
+
+**Vérification** : `npm test` (17 tests). Trois défauts ont été injectés un
+par un : lire une valeur inconnue comme 0, lire 1993 comme 0, lire un zéro
+mesuré comme inconnu. Chacun fait échouer 2 tests.
+
+## D10. Preprocess `preprocess/preprocess.py`
+
+**Statut** : adoptée le 2026-10-11.
+
+**Décisions et arguments** :
+
+- **Colonnes explicites**. Seules 15 colonnes sur 135 sont lues, nommées
+  uniquement dans `gtd_source.COLUMNS`. Le fichier est lu en cp1252 (D7).
+- **Coordonnées invalides comptées comme absentes**. Une latitude hors
+  [-90, 90] ou une longitude hors [-180, 180] est traitée comme une
+  coordonnée manquante. Un seul cas : l'événement 198212240004 (Nicaragua,
+  longitude -86185896). La valeur n'est pas corrigée (règle 4). Le total sans
+  coordonnées valides passe ainsi de 4 557 à 4 558.
+- **Blessés fractionnaires conservés**. Deux lignes du 2012-07-07 au Nigeria
+  ont 8,5 blessés : les sommes peuvent être décimales.
+- **Libellé du pays**. C'est le nom GTD de la ligne `direct` s'il en existe
+  une, sinon le nom ISO (par exemple TLS → « Timor-Leste »).
+- **Région d'un pays**. C'est sa région GTD la plus fréquente : DEU a 1 276
+  incidents en Western Europe et 38 en Eastern Europe (la RDA) ; FRA en a
+  2 693 en Western Europe, 68 aux Caraïbes et 7 en Amérique du Sud.
+  `region_year.json` compte chaque incident dans sa propre région.
+- **Sortie déterministe**. Les lignes sont triées par identifiant, les clés
+  JSON triées, les dictionnaires triés, et aucun horodatage n'est écrit. Le
+  test de double exécution lance la seconde dans un processus séparé : un
+  ordre qui dépendrait d'un `set` y est détecté (vérifié en injectant ce
+  défaut).
+- **Dossier de sortie protégé**. Le script refuse de vider un dossier qui ne
+  contient pas de `meta.json`.
+
+**Limites connues** :
+
+- **Aucun filtre sur le doute terroriste**. 29 001 incidents sont marqués
+  « doute sur le caractère terroriste », et 13 784 ont une valeur inconnue. Ils
+  sont tous comptés.
+- **Porto Rico et les îles Vierges américaines** : voir D11.
+
+**Rejouer** : `python preprocess/preprocess.py` (8 s), puis
+`python -m pytest preprocess`. 26 tests, dont les contrôles sur le vrai CSV :
+total des lignes, incidents par année, morts et blessés connus, fichiers par
+pays, années sans données, double exécution.
+
+## D11. Rapport de taille et décisions ouvertes
+
+Mesuré le 2026-10-11 avec `python preprocess/size_report.py` (gzip niveau 6) :
+
+| Fichier | Brut | Gzip |
+|---|---|---|
+| meta.json | 0,5 Ko | 0,4 Ko |
+| agg/country_year.json | 181,2 Ko | 26,0 Ko |
+| agg/region_year.json | 10,9 Ko | 4,2 Ko |
+| géométrie countries-50m | 738,7 Ko | 230,6 Ko |
+| **Chargement initial** | | **261,2 Ko, soit 12,8 % du budget de 2 Mo** |
+| top_events.json (à la demande) | 2 031,9 Ko | 262,1 Ko |
+| incidents/ (235 fichiers) | 46 063,6 Ko | 8 281,5 Ko |
+
+Les 5 plus gros fichiers d'incidents :
+
+| Fichier | Brut | Gzip | Gzip sans les résumés |
+|---|---|---|---|
+| IRQ | 8 157,3 Ko | 1 111,7 Ko | 235,0 Ko |
+| PAK | 4 621,9 Ko | 838,3 Ko | 175,5 Ko |
+| IND | 3 766,0 Ko | 778,1 Ko | 183,7 Ko |
+| AFG | 4 470,3 Ko | 758,4 Ko | 181,1 Ko |
+| PHL | 2 050,5 Ko | 421,5 Ko | 103,2 Ko |
+
+La géométrie pèse 230,6 Ko avec le gzip de Python, contre 227,4 Ko avec celui
+de Node (D1). Les deux implémentations ne compressent pas exactement de la
+même façon.
+
+**Décisions ouvertes** :
+
+1. **Où mettre les résumés ?** Ils représentent environ 80 % du poids des
+   fichiers d'incidents.
+   - Les garder dans `incidents/<iso3>.json` : 1,1 Mo gzip à charger au zoom
+     sur l'Irak.
+   - Les sortir dans un fichier chargé seulement au clic sur un incident (T10) :
+     235 Ko gzip pour les points de l'Irak. Cela modifie `contracts.ts` et
+     demande donc une proposition de diff.
+2. **Commiter `public/data/gtd/` ?** Le dossier pèse 48 Mo bruts. Trois options :
+   - ne rien commiter et regénérer : 8 s, mais il faut le CSV et le `.venv` ;
+   - commiter seulement `meta`, `agg` et `top_events` (environ 2,2 Mo) ;
+   - tout commiter : chaque régénération modifiée alourdit alors l'historique.
+3. **Porto Rico (PRI) et les îles Vierges américaines (VIR)**. La GTD étiquette
+   « United States » les incidents situés dans ces territoires : 245 incidents
+   tombent dans la forme de PRI et 3 dans celle de VIR, sur 1970-2017. Ils
+   comptent donc pour les États-Unis, et ces deux formes afficheraient un 0 qui
+   n'est pas un zéro mesuré.
+   - Mesure : le test point-dans-polygone a porté sur les 48 pays dessinables
+     sans incident. Seuls ces deux-là contiennent des incidents.
+   - Option : ajouter au contrat un champ « compté avec USA » pour les dessiner
+     comme non représentables, avec une explication dans le tooltip.
