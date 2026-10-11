@@ -102,18 +102,25 @@ d'alpha-3, si un code est dupliqué ou si la liste des géométries sans code ch
 
 ## D3. Code partagé `036` : Australie et îles Ashmore-et-Cartier
 
-**Statut** : proposée, à implémenter dans `src/core/geo.ts` (étape 1.4).
+**Statut** : adoptée et implémentée le 2026-10-11 dans `src/core/geo.ts`.
 
 **Constat** : dans le 50m (et le 10m), deux géométries portent `036` :
 « Australia » et « Ashmore and Cartier Is. », un territoire extérieur australien
 sans code ISO propre.
 
-**Décision proposée** : `featureFor("AUS")` renvoie la fusion des géométries de
-même code (`topojson.merge`). Le comportement ne dépend alors pas de l'ordre
-des géométries dans le fichier.
+**Décision** : `featureFor("AUS")` renvoie la fusion des géométries de même code
+(`topojson.merge`). L'entité prend le nom de la plus grande géométrie
+(`d3.geoArea`), donc « Australia ». Le résultat ne dépend pas de l'ordre des
+géométries dans le fichier.
 
 **Alternatives rejetées** : garder la première géométrie trouvée (dépend de
 l'ordre du fichier) ; supprimer Ashmore (perte silencieuse d'un territoire).
+
+**Vérification** : le test « merges the geometries that share a code » compare
+l'aire de `AUS` à la somme des aires des deux géométries sources, calculée
+indépendamment de `geo.ts`. Si l'on remplace la fusion par « garder la
+première », ce test échoue. Une erreur de sens d'enroulement des anneaux
+ferait aussi échouer ce test, car l'aire deviendrait celle du reste du globe.
 
 ## D4. Géométries sans code ISO
 
@@ -126,3 +133,68 @@ jointes par code.
 **À faire** : compter les incidents GTD rattachés à ces entités. Pour chacune,
 la politique par défaut est `not_representable` avec un compteur visible ;
 l'alternative est un code attribué explicitement, à chiffrer.
+
+## D5. Chargeur partagé `src/core/geo.ts`
+
+**Statut** : adoptée et implémentée le 2026-10-11. C'est un nouveau fichier de
+`src/core/`, donc partagé avec le module `atlas`.
+
+**Décision** : `geo.ts` expose :
+
+- `loadCountryAtlas(url?, fetchTopology?)`, mémoïsé par URL ;
+- `buildCountryAtlas(topology)`, une fonction pure ;
+- un `CountryAtlas` qui contient :
+  - `countries`, une entité par code alpha-3, triées par code ;
+  - `uncoded`, les entités sans code ISO utilisable ;
+  - `featureFor(iso3)` ;
+  - `topology`.
+
+**Arguments** :
+
+- **Fichier séparé (`?url`)**. La géométrie (739 Ko bruts) n'est pas incluse
+  dans le JavaScript. Vite l'émet comme fichier à nom haché
+  (`assets/countries-50m-<hash>.json`, vérifié par un build). Le navigateur peut
+  donc la garder en cache indépendamment du code, et le JS reste petit à
+  analyser.
+- **Mémoïsation de la promesse plutôt que du résultat**. Si `map` et `atlas`
+  demandent la carte en même temps, un seul téléchargement et un seul calcul ont
+  lieu (fusions, index). Un échec est retiré du cache, pour qu'une coupure
+  réseau passagère ne bloque pas la carte jusqu'au rechargement de la page.
+- **`featureFor` par `Map`**. L'accès coûte O(1), contre O(n) pour un
+  `Array.find` sur 235 entités, appelé à chaque survol et à chaque rendu.
+- **Les entités sans code restent dessinables**. Les jeter laisserait des trous :
+  le nord de la Somalie (Somaliland), le Kosovo, le nord de Chypre. Une absence
+  de territoire se lirait comme de la mer. Le module `map` les dessinera avec
+  l'encodage « non représentable ».
+- **`topology` est exposée**. Les modules peuvent ainsi calculer les frontières
+  (`topojson.mesh`) ou les voisins sans qu'on doive modifier `geo.ts`, ce qui
+  exigerait une proposition écrite.
+- **Ordre par code**. Il est déterministe, ce qui donne un ordre DOM stable. Le
+  module `map` pourra trier autrement pour la navigation clavier, par exemple par
+  nom affiché.
+- **`fetchTopology` injectable**. Les tests tournent sans réseau et sans
+  remplacer d3.
+
+**Alternatives rejetées** :
+
+- `import topology from "…countries-50m.json"`. La géométrie entrerait dans le
+  bundle JS : environ 227 Ko gzip de plus à télécharger et analyser avant
+  l'affichage, et aucun cache séparé du code.
+- Mémoïser le résultat seulement : deux appels simultanés déclencheraient deux
+  téléchargements.
+- Jeter les entités sans code : trous dans la carte.
+
+**Vérification** : `npm test` exécute 10 tests dans `src/core/geo.test.ts`. Quatre
+comportements ont été volontairement cassés un par un, et chacun a fait
+échouer exactement le test prévu :
+
+| Comportement cassé | Test qui échoue |
+|---|---|
+| Pas de fusion des codes partagés | merges the geometries that share a code |
+| Pas de mémoïsation | fetches a given URL once |
+| Échec gardé en cache | does not keep a failed load |
+| Entités sans code jetées | keeps geometries without ISO code |
+
+**Fichiers** : `src/core/geo.ts`, `src/core/geo.test.ts`, `package.json`
+(`@types/geojson`, `@types/topojson-specification` déclarés explicitement,
+car `geo.ts` les importe directement).
