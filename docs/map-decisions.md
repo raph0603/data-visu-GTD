@@ -198,3 +198,106 @@ comportements ont été volontairement cassés un par un, et chacun a fait
 **Fichiers** : `src/core/geo.ts`, `src/core/geo.test.ts`, `package.json`
 (`@types/geojson`, `@types/topojson-specification` déclarés explicitement,
 car `geo.ts` les importe directement).
+
+## D6. Correspondance des noms de pays GTD (`preprocess/mapping_pays.csv`)
+
+**Statut** : 185 lignes `direct` adoptées ; 20 lignes en attente de décision,
+mises par défaut en `not_representable`. Mesuré le 2026-10-11.
+
+**Données** : 181 691 incidents, 205 valeurs distinctes de la colonne pays, 1970
+à 2017, aucune ligne pour 1993. Chaque nom correspond à un seul code pays GTD.
+
+**Méthode, sans rien deviner en silence** :
+
+1. `propose_country_mapping.py` propose `direct` seulement si le nom GTD est
+   identique à un nom ISO 3166-1 (`name`, `official_name` ou `common_name`
+   dans pycountry) **et** si ce code a une forme dans la carte. Cela donne
+   172 noms.
+2. 13 variantes de nom ont été vérifiées une par une et passées en `direct` :
+   Turkey, Russia, Democratic Republic of the Congo, Bosnia-Herzegovina,
+   Macedonia, Ivory Coast, Macau, Swaziland, Brunei, St. Kitts and Nevis,
+   St. Lucia, Falkland Islands, Vatican City. La colonne `note` donne le nom
+   ISO correspondant.
+3. Les 20 autres noms (3 537 incidents, soit 1,95 %) restent en
+   `not_representable`, la politique par défaut du brief.
+
+**Mesure de l'alternative « réaffectation par coordonnées »**
+(`d3.geoContains` sur le 50m, avec un filtre par rectangle englobant) :
+
+| Nom GTD | Incidents | Années | Sans coordonnées | Où tombent les points |
+|---|---|---|---|---|
+| West Bank and Gaza Strip | 2 227 | 1972-2017 | 12 | PSE 2 167, ISR 48 |
+| West Germany (FRG) | 541 | 1970-1990 | 13 | DEU 528 |
+| Yugoslavia | 203 | 1973-2002 | 1 | Kosovo 112, SRB 59, HRV 13, BIH 11, MNE 4, MKD 1, SVN 1, aucune forme 1 |
+| Kosovo | 196 | 1999-2017 | 2 | Kosovo (forme sans code) 194 |
+| Rhodesia | 83 | 1978-1980 | 25 | ZWE 56, ZMB 2 |
+| Soviet Union | 78 | 1978-1991 | 4 | AZE 24, RUS 18, ARM 10, LVA 7, LTU 6, EST 4, GEO 3, KGZ 2 |
+| Guadeloupe | 56 | 1980-1991 | 17 | aucune forme 36, FRA 3 |
+| Zaire | 50 | 1972-1997 | 6 | COD 43, UGA 1 |
+| East Germany (GDR) | 38 | 1970-1990 | 0 | DEU 38 |
+| Martinique | 12 | 1981-1992 | 1 | aucune forme 8, FRA 3 |
+| Serbia-Montenegro | 11 | 2003-2006 | 0 | SRB 10, Kosovo 1 |
+| Czechoslovakia | 10 | 1972-1992 | 1 | CZE 8, SVK 1 |
+| East Timor | 10 | 2000-2008 | 2 | TLS 8 |
+| French Guiana | 7 | 1983-1997 | 0 | FRA 7 |
+| North Yemen | 6 | 1974-1988 | 2 | YEM 4 |
+| People's Republic of the Congo | 4 | 1972-1982 | 1 | COG 2, AGO 1 |
+| South Yemen | 2 | 1971-1983 | 1 | YEM 1 |
+| International | 1 | 2002 | 0 | aucune forme 1 |
+| New Hebrides | 1 | 1980 | 0 | VUT 1 |
+| South Vietnam | 1 | 1972 | 0 | VNM 1 |
+
+**Limite de la réaffectation par coordonnées** : la France du 50m contient bien
+la Guadeloupe (3 polygones), la Martinique et la Guyane. Pourtant, 27 incidents
+de Guadeloupe partagent un même point de Pointe-à-Pitre, sur la côte, à 1,7 km
+du contour simplifié : le test les place en mer. Au 1:50m, les villes côtières
+sortent souvent des polygones, ce qui rend la réaffectation fragile.
+
+**Propositions, à trancher** :
+
+| Groupe | Noms | Incidents | Proposition | Argument |
+|---|---|---|---|---|
+| A. Territoire entièrement contenu dans un seul pays actuel | FRG, GDR → DEU ; Rhodesia → ZWE ; Zaire → COD ; East Timor → TLS ; North et South Yemen → YEM ; People's Rep. of the Congo → COG ; New Hebrides → VUT ; South Vietnam → VNM | 736 | `successor` | Les coordonnées le confirment : 682 des 686 points localisés tombent dans le pays proposé. Les autres tombent juste de l'autre côté d'une frontière (raids transfrontaliers, coordonnées approximatives). |
+| B. État éclaté entre plusieurs pays | Yugoslavia, Soviet Union, Serbia-Montenegro, Czechoslovakia | 302 | `not_representable` et compteur | Aucun successeur unique n'existe. Réaffecter par coordonnées imposerait une étape point-dans-polygone dans le preprocess Python, pour 0,17 % des incidents, dont 113 tomberaient de toute façon au Kosovo. |
+| C1. Territoire contesté avec un code ISO | West Bank and Gaza Strip → PSE | 2 227 | `direct` | La forme PSE existe dans le 50m, et 98 % des points localisés y tombent. Laisser cette entité non représentable cacherait l'une des zones les plus touchées. |
+| C2. Territoire contesté sans code ISO | Kosovo | 196 | Au choix : `not_representable`, ou code `XKX` attribué à la forme « Kosovo » | Le code `XKX` n'est pas ISO (c'est un code réservé à l'usage des utilisateurs). Il exigerait de modifier `src/core/geo.ts`, donc une proposition de diff. |
+| D. Territoire inclus dans la forme d'un autre pays | Guadeloupe, Martinique, French Guiana → FRA | 75 | Nouvelle politique `part_of` | Ces îles sont dessinées comme parties de la France : elles prennent la couleur de FRA, qui doit donc inclure leurs incidents. Il faut ajouter `part_of` aux politiques autorisées. |
+| E. Sans lieu | International | 1 | `not_representable` | Il n'y a rien à dessiner. |
+
+**Effet chiffré** : avec toutes les propositions, il resterait 499 incidents non
+représentables (0,27 %), et 303 (0,17 %) si le Kosovo reçoit `XKX`. Avec les
+valeurs par défaut actuelles, il y en a 3 537 (1,95 %).
+
+**Rejouer** :
+
+- `python preprocess/propose_country_mapping.py` (noms non couverts) ;
+- `python -m pytest preprocess` (validité de la table) ;
+- `python preprocess/export_policy_points.py | npx tsx scripts/measure-country-reassignment.ts`
+  (le tableau ci-dessus).
+
+**Fichiers** :
+
+- `preprocess/mapping_pays.csv`, `preprocess/country_mapping.py` ;
+- `preprocess/test_country_mapping.py`, `preprocess/pytest.ini` ;
+- `preprocess/gtd_source.py`, `preprocess/country_geometry.py` ;
+- `preprocess/propose_country_mapping.py`, `preprocess/export_policy_points.py` ;
+- `scripts/measure-country-reassignment.ts`.
+
+## D7. Encodage du CSV : Windows-1252 plutôt que latin-1
+
+**Statut** : à trancher. Le brief demande latin-1, que `gtd_source.ENCODING`
+applique pour l'instant.
+
+**Constat** : la lecture en UTF-8 strict échoue à l'octet 7127 (`0xE9`, « é »).
+Le fichier contient de nombreux octets de la plage `0x80` à `0x9F` : 31 426 ×
+`0x94`, 29 121 × `0x93`, 7 631 × `0x92`, 2 039 × `0x96`, etc. En Windows-1252,
+ce sont les guillemets « ” », l'apostrophe ’ et le tiret –. En latin-1, ce sont
+des caractères de contrôle invisibles (U+0093…). Aucun des 5 octets non définis
+en Windows-1252 (`0x81`, `0x8D`, `0x8F`, `0x90`, `0x9D`) n'apparaît.
+
+**Proposition** : `ENCODING = "cp1252"`. Les noms de pays sont en ASCII, donc
+le mapping n'est pas affecté. Les textes affichés dans la fiche d'incident
+(T10 : résumés, cibles) le sont.
+
+**Alternative rejetée** : rester en latin-1. Les guillemets des résumés
+deviendraient des caractères de contrôle dans `incidents/<iso3>.json`.

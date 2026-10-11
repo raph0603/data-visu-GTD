@@ -1,0 +1,206 @@
+gtd_country,iso3,policy,note,incidents
+Afghanistan,AFG,direct,Nom ISO identique,12731
+Albania,ALB,direct,Nom ISO identique,80
+Algeria,DZA,direct,Nom ISO identique,2743
+Andorra,AND,direct,Nom ISO identique,1
+Angola,AGO,direct,Nom ISO identique,499
+Antigua and Barbuda,ATG,direct,Nom ISO identique,1
+Argentina,ARG,direct,Nom ISO identique,815
+Armenia,ARM,direct,Nom ISO identique,24
+Australia,AUS,direct,Nom ISO identique,114
+Austria,AUT,direct,Nom ISO identique,115
+Azerbaijan,AZE,direct,Nom ISO identique,49
+Bahamas,BHS,direct,Nom ISO identique,5
+Bahrain,BHR,direct,Nom ISO identique,207
+Bangladesh,BGD,direct,Nom ISO identique,1648
+Barbados,BRB,direct,Nom ISO identique,3
+Belarus,BLR,direct,Nom ISO identique,13
+Belgium,BEL,direct,Nom ISO identique,154
+Belize,BLZ,direct,Nom ISO identique,8
+Benin,BEN,direct,Nom ISO identique,8
+Bhutan,BTN,direct,Nom ISO identique,6
+Bolivia,BOL,direct,Nom ISO identique,314
+Bosnia-Herzegovina,BIH,direct,Variante du nom ISO « Bosnia and Herzegovina »,159
+Botswana,BWA,direct,Nom ISO identique,10
+Brazil,BRA,direct,Nom ISO identique,273
+Brunei,BRN,direct,Nom courant de « Brunei Darussalam »,6
+Bulgaria,BGR,direct,Nom ISO identique,52
+Burkina Faso,BFA,direct,Nom ISO identique,52
+Burundi,BDI,direct,Nom ISO identique,613
+Cambodia,KHM,direct,Nom ISO identique,259
+Cameroon,CMR,direct,Nom ISO identique,332
+Canada,CAN,direct,Nom ISO identique,96
+Central African Republic,CAF,direct,Nom ISO identique,283
+Chad,TCD,direct,Nom ISO identique,91
+Chile,CHL,direct,Nom ISO identique,2365
+China,CHN,direct,Nom ISO identique,252
+Colombia,COL,direct,Nom ISO identique,8306
+Comoros,COM,direct,Nom ISO identique,5
+Costa Rica,CRI,direct,Nom ISO identique,67
+Croatia,HRV,direct,Nom ISO identique,57
+Cuba,CUB,direct,Nom ISO identique,30
+Cyprus,CYP,direct,Nom ISO identique,132
+Czech Republic,CZE,direct,Nom ISO identique,32
+Czechoslovakia,,not_representable,État dissous en 1993 ; territoire réparti entre CZE et SVK,10
+Democratic Republic of the Congo,COD,direct,"Nom ISO « Congo, The Democratic Republic of the »",775
+Denmark,DNK,direct,Nom ISO identique,41
+Djibouti,DJI,direct,Nom ISO identique,22
+Dominica,DMA,direct,Nom ISO identique,3
+Dominican Republic,DOM,direct,Nom ISO identique,90
+East Germany (GDR),,not_representable,État réunifié en 1990 ; territoire inclus dans DEU,38
+East Timor,,not_representable,Nom de TLS avant 2002 (occupation indonésienne 1975-1999) ; même territoire,10
+Ecuador,ECU,direct,Nom ISO identique,220
+Egypt,EGY,direct,Nom ISO identique,2479
+El Salvador,SLV,direct,Nom ISO identique,5320
+Equatorial Guinea,GNQ,direct,Nom ISO identique,2
+Eritrea,ERI,direct,Nom ISO identique,10
+Estonia,EST,direct,Nom ISO identique,16
+Ethiopia,ETH,direct,Nom ISO identique,190
+Falkland Islands,FLK,direct,Nom ISO « Falkland Islands (Malvinas) » ; souveraineté revendiquée par l'Argentine,1
+Fiji,FJI,direct,Nom ISO identique,17
+Finland,FIN,direct,Nom ISO identique,20
+France,FRA,direct,Nom ISO identique,2693
+French Guiana,,not_representable,Code ISO GUF sans forme propre dans world-atlas 50m,7
+French Polynesia,PYF,direct,Nom ISO identique,3
+Gabon,GAB,direct,Nom ISO identique,8
+Gambia,GMB,direct,Nom ISO identique,3
+Georgia,GEO,direct,Nom ISO identique,217
+Germany,DEU,direct,Nom ISO identique,735
+Ghana,GHA,direct,Nom ISO identique,19
+Greece,GRC,direct,Nom ISO identique,1275
+Grenada,GRD,direct,Nom ISO identique,5
+Guadeloupe,,not_representable,Code ISO GLP sans forme propre dans world-atlas 50m,56
+Guatemala,GTM,direct,Nom ISO identique,2050
+Guinea,GIN,direct,Nom ISO identique,25
+Guinea-Bissau,GNB,direct,Nom ISO identique,9
+Guyana,GUY,direct,Nom ISO identique,26
+Haiti,HTI,direct,Nom ISO identique,213
+Honduras,HND,direct,Nom ISO identique,323
+Hong Kong,HKG,direct,Nom ISO identique,26
+Hungary,HUN,direct,Nom ISO identique,46
+Iceland,ISL,direct,Nom ISO identique,4
+India,IND,direct,Nom ISO identique,11960
+Indonesia,IDN,direct,Nom ISO identique,761
+International,,not_representable,Aucune localisation terrestre,1
+Iran,IRN,direct,Nom ISO identique,684
+Iraq,IRQ,direct,Nom ISO identique,24636
+Ireland,IRL,direct,Nom ISO identique,307
+Israel,ISR,direct,Nom ISO identique,2183
+Italy,ITA,direct,Nom ISO identique,1565
+Ivory Coast,CIV,direct,Nom anglais de « Côte d'Ivoire »,74
+Jamaica,JAM,direct,Nom ISO identique,36
+Japan,JPN,direct,Nom ISO identique,402
+Jordan,JOR,direct,Nom ISO identique,113
+Kazakhstan,KAZ,direct,Nom ISO identique,27
+Kenya,KEN,direct,Nom ISO identique,683
+Kosovo,,not_representable,Aucun code ISO 3166-1 ; forme présente dans le 50m mais sans identifiant,196
+Kuwait,KWT,direct,Nom ISO identique,76
+Kyrgyzstan,KGZ,direct,Nom ISO identique,35
+Laos,LAO,direct,Nom ISO identique,27
+Latvia,LVA,direct,Nom ISO identique,17
+Lebanon,LBN,direct,Nom ISO identique,2478
+Lesotho,LSO,direct,Nom ISO identique,29
+Liberia,LBR,direct,Nom ISO identique,34
+Libya,LBY,direct,Nom ISO identique,2249
+Lithuania,LTU,direct,Nom ISO identique,8
+Luxembourg,LUX,direct,Nom ISO identique,16
+Macau,MAC,direct,"Graphie de « Macao » ; administration portugaise jusqu'en 1999, même territoire",33
+Macedonia,MKD,direct,"Ancien nom de « North Macedonia » (2019), même État",118
+Madagascar,MDG,direct,Nom ISO identique,27
+Malawi,MWI,direct,Nom ISO identique,5
+Malaysia,MYS,direct,Nom ISO identique,99
+Maldives,MDV,direct,Nom ISO identique,22
+Mali,MLI,direct,Nom ISO identique,566
+Malta,MLT,direct,Nom ISO identique,23
+Martinique,,not_representable,Code ISO MTQ sans forme propre dans world-atlas 50m,12
+Mauritania,MRT,direct,Nom ISO identique,18
+Mauritius,MUS,direct,Nom ISO identique,2
+Mexico,MEX,direct,Nom ISO identique,524
+Moldova,MDA,direct,Nom ISO identique,21
+Montenegro,MNE,direct,Nom ISO identique,5
+Morocco,MAR,direct,Nom ISO identique,36
+Mozambique,MOZ,direct,Nom ISO identique,363
+Myanmar,MMR,direct,Nom ISO identique,546
+Namibia,NAM,direct,Nom ISO identique,151
+Nepal,NPL,direct,Nom ISO identique,1215
+Netherlands,NLD,direct,Nom ISO identique,130
+New Caledonia,NCL,direct,Nom ISO identique,31
+New Hebrides,,not_representable,Nom de VUT avant 1980 ; même territoire,1
+New Zealand,NZL,direct,Nom ISO identique,20
+Nicaragua,NIC,direct,Nom ISO identique,1970
+Niger,NER,direct,Nom ISO identique,154
+Nigeria,NGA,direct,Nom ISO identique,3907
+North Korea,PRK,direct,Nom ISO identique,1
+North Yemen,,not_representable,État unifié en 1990 ; territoire inclus dans YEM,6
+Norway,NOR,direct,Nom ISO identique,19
+Pakistan,PAK,direct,Nom ISO identique,14368
+Panama,PAN,direct,Nom ISO identique,127
+Papua New Guinea,PNG,direct,Nom ISO identique,89
+Paraguay,PRY,direct,Nom ISO identique,114
+People's Republic of the Congo,,not_representable,Nom de COG jusqu'en 1991 ; même territoire,4
+Peru,PER,direct,Nom ISO identique,6096
+Philippines,PHL,direct,Nom ISO identique,6908
+Poland,POL,direct,Nom ISO identique,39
+Portugal,PRT,direct,Nom ISO identique,140
+Qatar,QAT,direct,Nom ISO identique,7
+Republic of the Congo,COG,direct,Nom ISO identique,36
+Rhodesia,,not_representable,Nom de ZWE avant 1980 ; même territoire,83
+Romania,ROU,direct,Nom ISO identique,6
+Russia,RUS,direct,Nom courant de « Russian Federation »,2194
+Rwanda,RWA,direct,Nom ISO identique,159
+Saudi Arabia,SAU,direct,Nom ISO identique,371
+Senegal,SEN,direct,Nom ISO identique,118
+Serbia,SRB,direct,Nom ISO identique,12
+Serbia-Montenegro,,not_representable,"État dissous en 2006 ; territoire réparti entre SRB, MNE et Kosovo",11
+Seychelles,SYC,direct,Nom ISO identique,2
+Sierra Leone,SLE,direct,Nom ISO identique,101
+Singapore,SGP,direct,Nom ISO identique,7
+Slovak Republic,SVK,direct,Nom ISO identique,18
+Slovenia,SVN,direct,Nom ISO identique,6
+Solomon Islands,SLB,direct,Nom ISO identique,4
+Somalia,SOM,direct,Nom ISO identique,4142
+South Africa,ZAF,direct,Nom ISO identique,2016
+South Korea,KOR,direct,Nom ISO identique,38
+South Sudan,SSD,direct,Nom ISO identique,225
+South Vietnam,,not_representable,État disparu en 1976 ; territoire inclus dans VNM,1
+South Yemen,,not_representable,État unifié en 1990 ; territoire inclus dans YEM,2
+Soviet Union,,not_representable,État dissous en 1991 ; territoire réparti entre 15 États,78
+Spain,ESP,direct,Nom ISO identique,3249
+Sri Lanka,LKA,direct,Nom ISO identique,3022
+St. Kitts and Nevis,KNA,direct,Abréviation de « Saint Kitts and Nevis »,2
+St. Lucia,LCA,direct,Abréviation de « Saint Lucia »,1
+Sudan,SDN,direct,Nom ISO identique,967
+Suriname,SUR,direct,Nom ISO identique,66
+Swaziland,SWZ,direct,"Ancien nom d'« Eswatini » (2018), même État",16
+Sweden,SWE,direct,Nom ISO identique,132
+Switzerland,CHE,direct,Nom ISO identique,111
+Syria,SYR,direct,Nom ISO identique,2201
+Taiwan,TWN,direct,Nom ISO identique,50
+Tajikistan,TJK,direct,Nom ISO identique,188
+Tanzania,TZA,direct,Nom ISO identique,59
+Thailand,THA,direct,Nom ISO identique,3849
+Togo,TGO,direct,Nom ISO identique,48
+Trinidad and Tobago,TTO,direct,Nom ISO identique,22
+Tunisia,TUN,direct,Nom ISO identique,109
+Turkey,TUR,direct,"Ancien nom ISO de « Türkiye » (2022), même État",4292
+Turkmenistan,TKM,direct,Nom ISO identique,2
+Uganda,UGA,direct,Nom ISO identique,394
+Ukraine,UKR,direct,Nom ISO identique,1709
+United Arab Emirates,ARE,direct,Nom ISO identique,22
+United Kingdom,GBR,direct,Nom ISO identique,5235
+United States,USA,direct,Nom ISO identique,2836
+Uruguay,URY,direct,Nom ISO identique,82
+Uzbekistan,UZB,direct,Nom ISO identique,21
+Vanuatu,VUT,direct,Nom ISO identique,2
+Vatican City,VAT,direct,Nom ISO « Holy See (Vatican City State) »,1
+Venezuela,VEN,direct,Nom ISO identique,293
+Vietnam,VNM,direct,Nom ISO identique,12
+Wallis and Futuna,WLF,direct,Nom ISO identique,1
+West Bank and Gaza Strip,,not_representable,"Territoire du code ISO PSE (« Palestine, State of ») ; statut contesté",2227
+West Germany (FRG),,not_representable,État réunifié en 1990 ; territoire inclus dans DEU,541
+Western Sahara,ESH,direct,Nom ISO identique,5
+Yemen,YEM,direct,Nom ISO identique,3347
+Yugoslavia,,not_representable,"État dissous ; territoire réparti entre SRB, HRV, BIH, SVN, MKD, MNE et Kosovo",203
+Zaire,,not_representable,Nom de COD de 1971 à 1997 ; même territoire,50
+Zambia,ZMB,direct,Nom ISO identique,62
+Zimbabwe,ZWE,direct,Nom ISO identique,101
