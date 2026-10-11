@@ -7,3 +7,6 @@ public/data/*
 !public/data/.gitkeep
 .vscode/
 dist/
+
+# Raw Kaggle exports (GTD CSV) are never committed.
+data/raw/
