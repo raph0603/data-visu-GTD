@@ -15,18 +15,33 @@ import pandas as pd
 REPO_ROOT = Path(__file__).resolve().parent.parent
 RAW_CSV = REPO_ROOT / "data" / "raw" / "globalterrorismdb_0718dist.csv"
 
+DATASET_ID = "gtd"
+DATASET_TITLE = "Global Terrorism Database"
+
+# Value of the group field when the perpetrator is not identified.
+UNKNOWN_GROUP = "Unknown"
+
 # Windows-1252, not latin-1: the file holds curly quotes and dashes in the
 # 0x80-0x9F range (docs/map-decisions.md, D7).
 ENCODING = "cp1252"
 
 # Neutral field name -> GTD column name.
+# Month and day use 0 for "unknown".
 COLUMNS: dict[str, str] = {
     "event_id": "eventid",
     "year": "iyear",
+    "month": "imonth",
+    "day": "iday",
     "country": "country_txt",
     "region": "region_txt",
+    "city": "city",
     "latitude": "latitude",
     "longitude": "longitude",
+    "killed": "nkill",
+    "wounded": "nwound",
+    "group": "gname",
+    "attack_type": "attacktype1_txt",
+    "target_type": "targtype1_txt",
     "summary": "summary",
 }
 
