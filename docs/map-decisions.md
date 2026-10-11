@@ -124,15 +124,24 @@ ferait aussi échouer ce test, car l'aire deviendrait celle du reste du globe.
 
 ## D4. Géométries sans code ISO
 
-**Statut** : ouverte, à trancher à l'étape 1.2 avec les chiffres du CSV.
+**Statut** : close le 2026-10-11 (voir D6).
 
 **Constat** : 5 géométries du 50m n'ont pas d'`id` : Kosovo, N. Cyprus,
 Somaliland, Siachen Glacier et Indian Ocean Ter. Elles ne peuvent donc pas être
 jointes par code.
 
-**À faire** : compter les incidents GTD rattachés à ces entités. Pour chacune,
-la politique par défaut est `not_representable` avec un compteur visible ;
-l'alternative est un code attribué explicitement, à chiffrer.
+**Résolution** :
+
+- **Kosovo** est le seul de ces noms présent dans la GTD (196 incidents). Il
+  reste `not_representable` (décision D6).
+- **N. Cyprus et Somaliland** ne sont pas des noms GTD : la GTD rattache ces
+  incidents à « Cyprus » et « Somalia ».
+  - Ils sont donc comptés dans CYP et SOM.
+  - Leurs formes sans code sont dessinées avec l'encodage « non
+    représentable ».
+  - Limite connue : la couleur de la Somalie ne s'étend pas au Somaliland,
+    alors que ses incidents y sont comptés.
+- **Siachen Glacier et Indian Ocean Ter.** n'ont aucun nom GTD.
 
 ## D5. Chargeur partagé `src/core/geo.ts`
 
@@ -201,8 +210,10 @@ car `geo.ts` les importe directement).
 
 ## D6. Correspondance des noms de pays GTD (`preprocess/mapping_pays.csv`)
 
-**Statut** : 185 lignes `direct` adoptées ; 20 lignes en attente de décision,
-mises par défaut en `not_representable`. Mesuré le 2026-10-11.
+**Statut** : adoptée le 2026-10-11. Les propositions A, B, C1, D et E sont
+retenues ; pour C2, le Kosovo reste `not_representable`. La table compte
+186 `direct`, 10 `successor`, 3 `part_of` et 6 `not_representable`, soit
+499 incidents non représentables (0,27 %).
 
 **Données** : 181 691 incidents, 205 valeurs distinctes de la colonne pays, 1970
 à 2017, aucune ligne pour 1993. Chaque nom correspond à un seul code pays GTD.
@@ -253,7 +264,7 @@ de Guadeloupe partagent un même point de Pointe-à-Pitre, sur la côte, à 1,7 
 du contour simplifié : le test les place en mer. Au 1:50m, les villes côtières
 sortent souvent des polygones, ce qui rend la réaffectation fragile.
 
-**Propositions, à trancher** :
+**Propositions** (tranchées le 2026-10-11, voir le statut) :
 
 | Groupe | Noms | Incidents | Proposition | Argument |
 |---|---|---|---|---|
@@ -285,8 +296,8 @@ valeurs par défaut actuelles, il y en a 3 537 (1,95 %).
 
 ## D7. Encodage du CSV : Windows-1252 plutôt que latin-1
 
-**Statut** : à trancher. Le brief demande latin-1, que `gtd_source.ENCODING`
-applique pour l'instant.
+**Statut** : adoptée le 2026-10-11 ; elle remplace le latin-1 demandé par le
+brief.
 
 **Constat** : la lecture en UTF-8 strict échoue à l'octet 7127 (`0xE9`, « é »).
 Le fichier contient de nombreux octets de la plage `0x80` à `0x9F` : 31 426 ×
@@ -295,9 +306,13 @@ ce sont les guillemets « ” », l'apostrophe ’ et le tiret –. En latin-1, 
 des caractères de contrôle invisibles (U+0093…). Aucun des 5 octets non définis
 en Windows-1252 (`0x81`, `0x8D`, `0x8F`, `0x90`, `0x9D`) n'apparaît.
 
-**Proposition** : `ENCODING = "cp1252"`. Les noms de pays sont en ASCII, donc
-le mapping n'est pas affecté. Les textes affichés dans la fiche d'incident
-(T10 : résumés, cibles) le sont.
+**Décision** : `ENCODING = "cp1252"` dans `preprocess/gtd_source.py`. Les noms
+de pays sont en ASCII, donc le mapping n'est pas affecté. Les textes affichés
+dans la fiche d'incident (T10 : résumés, cibles) le sont.
 
 **Alternative rejetée** : rester en latin-1. Les guillemets des résumés
 deviendraient des caractères de contrôle dans `incidents/<iso3>.json`.
+
+**Vérification** : `python -m pytest preprocess`. Le test
+`test_text_has_no_c1_control_characters` passe en cp1252. En latin-1, il échoue :
+2 357 résumés contiennent alors des caractères de contrôle.
