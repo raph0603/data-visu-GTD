@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import {
   fetchCountryIncidents,
   fetchCountryYear,
-  fetchFlow,
+  fetchCube,
   fetchGroupYear,
   fetchMeta,
   fetchRegionYear,
@@ -44,15 +44,15 @@ describe.skipIf(!generated)(title, () => {
     }
   });
 
-  it("counts every incident once in group_year.json and in flow.json", async () => {
+  it("counts every incident once in group_year.json and in cube.json", async () => {
     const meta = await fetchMeta("gtd", readJson);
     const { first, last } = meta.years;
     const groups = new YearlyIndex(await fetchGroupYear("gtd", meta, readJson));
     const byGroup = groups.keys.reduce((sum, key) => sum + groups.window(key, "incidents", first, last), 0);
     expect(byGroup).toBe(meta.rows.total);
 
-    const flow = await fetchFlow("gtd", meta, readJson);
-    expect(flow.columns.incidents.reduce((sum, n) => sum + n, 0)).toBe(meta.rows.total);
+    const cube = await fetchCube("gtd", meta, readJson);
+    expect(cube.columns.incidents.reduce((sum, n) => sum + n, 0)).toBe(meta.rows.total);
   });
 
   it("validates region_year.json, top_events.json and every incidents and summaries file", async () => {

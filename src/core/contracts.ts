@@ -104,7 +104,7 @@ export type CountryIncidentsFile = {
   count: number;
   /** Incidents of this country left out of the file for lack of valid coordinates. */
   withoutCoordinates: number;
-  dictionaries: { attackType: string[]; targetType: string[]; group: string[] };
+  dictionaries: { attackType: string[]; targetType: string[]; weaponType: string[]; group: string[] };
   columns: {
     eventId: string[];
     year: number[];
@@ -113,9 +113,10 @@ export type CountryIncidentsFile = {
     latitude: number[];
     longitude: number[];
     city: (string | null)[];
-    /** Indexes into dictionaries.attackType, targetType and group. */
+    /** Indexes into dictionaries.attackType, targetType, weaponType and group. */
     attackType: number[];
     targetType: number[];
+    weaponType: number[];
     group: number[];
     killed: (number | null)[];
     wounded: (number | null)[];
@@ -135,27 +136,31 @@ export type SummariesFile = {
   summaries: Record<string, string>;
 };
 
-export const FLOW_DIMENSIONS = ["country", "attackType", "targetType", "weaponType"] as const;
-export type FlowDimension = (typeof FLOW_DIMENSIONS)[number];
+export const CUBE_DIMENSIONS = ["country", "attackType", "targetType", "weaponType", "group"] as const;
+export type CubeDimension = (typeof CUBE_DIMENSIONS)[number];
 
 /**
- * flow.json: sparse cube year x country x attack type x target type x weapon
- * type, column by column, one row per combination with at least one incident.
+ * cube.json: sparse cube year x country x attack type x target type x weapon
+ * type x group x suicide, column by column, one row per combination with at
+ * least one incident, so that every filter of the views applies to it (D14).
  * The country dictionary holds ISO alpha-3 codes and "" for incidents without a
  * representable country, so that the cube sums to every incident.
  */
-export type FlowFile = {
+export type CubeFile = {
   schemaVersion: 1;
   years: { first: number; last: number };
   count: number;
-  dictionaries: Record<FlowDimension, string[]>;
+  dictionaries: Record<CubeDimension, string[]>;
   columns: {
     year: number[];
-    /** Indexes into dictionaries.country, attackType, targetType and weaponType. */
+    /** Indexes into dictionaries.country, attackType, targetType, weaponType and group. */
     country: number[];
     attackType: number[];
     targetType: number[];
     weaponType: number[];
+    group: number[];
+    /** 1 for suicide attacks, else 0. */
+    suicide: number[];
     incidents: number[];
     killedSum: number[];
     killedKnown: number[];
@@ -395,7 +400,7 @@ export function parseCountryIncidentsFile(value: unknown, meta: Meta): CountryIn
 
   const dictionaries = record(root.dictionaries, "dictionaries");
   const sizes: Record<string, number> = {};
-  for (const name of ["attackType", "targetType", "group"]) {
+  for (const name of ["attackType", "targetType", "weaponType", "group"]) {
     const entries = list(dictionaries[name], `dictionaries.${name}`);
     entries.forEach((entry, i) => text(entry, `dictionaries.${name}.${i}`));
     sizes[name] = entries.length;
@@ -413,7 +418,7 @@ export function parseCountryIncidentsFile(value: unknown, meta: Meta): CountryIn
   column("latitude", (entry, path) => amount(entry, path, -90, 90));
   column("longitude", (entry, path) => amount(entry, path, -180, 180));
   column("city", nullable(text));
-  for (const name of ["attackType", "targetType", "group"]) {
+  for (const name of ["attackType", "targetType", "weaponType", "group"]) {
     column(name, (entry, path) => integer(entry, path, 0, (sizes[name] ?? 0) - 1));
   }
   column("killed", nullable(amount));
@@ -432,15 +437,15 @@ export function parseSummariesFile(value: unknown): SummariesFile {
   return value as SummariesFile;
 }
 
-export function parseFlowFile(value: unknown, meta: Meta): FlowFile {
+export function parseCubeFile(value: unknown, meta: Meta): CubeFile {
   const root = record(value, "");
   schemaVersion(root);
   checkYears(root, meta);
   const n = integer(root.count, "count");
 
   const dictionaries = record(root.dictionaries, "dictionaries");
-  const sizes = {} as Record<FlowDimension, number>;
-  for (const name of FLOW_DIMENSIONS) {
+  const sizes = {} as Record<CubeDimension, number>;
+  for (const name of CUBE_DIMENSIONS) {
     const entries = list(dictionaries[name], `dictionaries.${name}`);
     entries.forEach((entry, i) => {
       const label = text(entry, `dictionaries.${name}.${i}`);
@@ -454,9 +459,10 @@ export function parseFlowFile(value: unknown, meta: Meta): FlowFile {
   const columns = record(root.columns, "columns");
   const column = (name: string) => list(columns[name], `columns.${name}`, n);
   column("year").forEach((entry, i) => incidentYear(entry, `columns.year[${i}]`, meta));
-  for (const name of FLOW_DIMENSIONS) {
+  for (const name of CUBE_DIMENSIONS) {
     column(name).forEach((entry, i) => integer(entry, `columns.${name}[${i}]`, 0, sizes[name] - 1));
   }
+  column("suicide").forEach((entry, i) => integer(entry, `columns.suicide[${i}]`, 0, 1));
   const incidents = column("incidents").map((entry, i) => integer(entry, `columns.incidents[${i}]`, 1));
   for (const metric of ["killed", "wounded"]) {
     column(`${metric}Sum`).forEach((entry, i) => amount(entry, `columns.${metric}Sum[${i}]`));
@@ -464,7 +470,7 @@ export function parseFlowFile(value: unknown, meta: Meta): FlowFile {
       integer(entry, `columns.${metric}Known[${i}]`, 0, incidents[i]),
     );
   }
-  return value as FlowFile;
+  return value as CubeFile;
 }
 
 export type FetchJson = (url: string) => Promise<unknown>;
@@ -508,8 +514,8 @@ export function fetchGroupYear(dataset: string, meta: Meta, fetchJson: FetchJson
   );
 }
 
-export function fetchFlow(dataset: string, meta: Meta, fetchJson: FetchJson = json) {
-  return fetchParsed(dataUrl(dataset, "flow.json"), fetchJson, (value) => parseFlowFile(value, meta));
+export function fetchCube(dataset: string, meta: Meta, fetchJson: FetchJson = json) {
+  return fetchParsed(dataUrl(dataset, "cube.json"), fetchJson, (value) => parseCubeFile(value, meta));
 }
 
 export function fetchTopEvents(dataset: string, meta: Meta, fetchJson: FetchJson = json) {

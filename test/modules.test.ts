@@ -14,7 +14,7 @@ const offline: DataApi = {
   regionYear: () => Promise.reject(new Error('offline')),
   groupYear: () => Promise.reject(new Error('offline')),
   topEvents: () => Promise.reject(new Error('offline')),
-  flow: () => Promise.reject(new Error('offline')),
+  cube: () => Promise.reject(new Error('offline')),
   incidents: () => Promise.reject(new Error('offline')),
   summaries: () => Promise.reject(new Error('offline')),
 };

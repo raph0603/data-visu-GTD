@@ -540,19 +540,29 @@ des pays.
 **Vérification** : la somme des groupes égale le nombre de lignes du CSV
 (`test_groups_and_flow_count_every_row`, `contracts.data.test.ts`).
 
-## D14. Cube du diagramme de flux `flow.json`
+## D14. Cube de faits `cube.json`
 
-**Statut** : adoptée le 2026-10-12.
+**Statut** : adoptée le 2026-10-12 (remplace `flow.json`, qui n'avait pas encore
+de lecteur).
 
 **Décision** : un cube creux année × pays × type d'attaque × type de cible ×
-type d'arme (`weaptype1_txt`, ajoutée à `gtd_source.COLUMNS`), stocké en
-colonnes avec dictionnaires : 40 183 combinaisons, avec pour chacune le nombre
-d'incidents et, pour les morts et les blessés, la somme connue et le nombre de
-valeurs connues. Les incidents sans pays représentable ont le code pays `""`.
+type d'arme (`weaptype1_txt`, ajoutée à `gtd_source.COLUMNS`) × organisation ×
+attentat-suicide, stocké en colonnes avec dictionnaires : 60 014 combinaisons (290 Ko gzip),
+avec pour chacune le nombre d'incidents et, pour les morts et les blessés, la
+somme connue et le nombre de valeurs connues. Les incidents sans pays
+représentable ont le code pays `""`. `incidents/<iso3>.json` reçoit aussi le
+type d'arme, pour que les points suivent les mêmes filtres.
 
-**Argument** : avec le pays, le diagramme suit le pays sélectionné sur la carte
-(`state.focus`) sans charger de fichier d'incidents ; 156,1 Ko gzip. Par
-région seulement (22 748 combinaisons), on perdait ce lien.
+**Argument** : tous les filtres de la vue pays (D18) s'appliquent à toutes ses
+vues à partir d'un seul fichier : la carte, les chiffres clés, les courbes, les
+répartitions, le flux, le classement, les organisations et les liens entre pays
+restent cohérents. Sans le pays, le flux ne suivrait pas la sélection ; sans
+l'organisation et le suicide, ces deux filtres ne s'appliqueraient qu'aux points.
+Mesures (sur les noms de pays GTD, avant fusion en codes ISO) : 40 183 combinaisons sans
+organisation ni suicide, 60 066 avec, soit une hausse de 50 % pour deux filtres de plus.
+
+**Vérification** : la somme du cube égale le nombre de lignes du CSV, morts
+connus compris (`test_groups_and_flow_count_every_row`, `contracts.data.test.ts`).
 
 ## D15. Colonne `suicide` dans `incidents/<iso3>.json`
 
@@ -590,3 +600,73 @@ elles-mêmes sans accord écrit, mais autorise la publication d'une analyse ou
 d'une visualisation non commerciale. Mettre l'application en ligne avec
 `public/data/gtd/` revient à publier les fichiers d'incidents et leurs
 résumés : à valider avant tout déploiement public.
+
+## D18. Vue « Carte par pays » : tableau de bord centré sur les pays
+
+**Statut** : adoptée le 2026-10-12 ; remplace la première version (choroplèthe
+et top 10 seuls).
+
+**Décision** : une seule vue, où tout porte sur les pays et où tout est lié.
+
+- **Une ligne de filtres** au-dessus de tout : période (avec lecture animée),
+  métrique, période de comparaison, type d'attaque, cible, arme, organisation
+  (liste avec recherche), attentats-suicides. Chaque filtre est dans
+  `state.filters` et dans l'URL, et s'applique à tous les panneaux via le cube
+  (D14).
+- **Sélection de 6 pays au plus** dans `state.pinned`, partagée avec le
+  leaderboard. Chaque pays garde sa couleur (palette Okabe–Ito du projet) tant
+  qu'il est sélectionné, même si on en retire un autre. La couleur est toujours
+  accompagnée du nom : pastilles, étiquettes sur la carte, légendes.
+- **Carte** : choroplèthe en échelle logarithmique de la métrique filtrée ; les
+  pays sélectionnés sont cernés de leur couleur et nommés. Elle a deux couches :
+  - les **incidents exacts** des pays sélectionnés (canvas, taille = morts) ;
+  - les **liens** : un arc relie un pays sélectionné à chaque pays où ses
+    organisations agissent aussi. L'épaisseur donne le nombre d'incidents de ces
+    organisations dans le pays d'arrivée ; les 10 plus forts par pays sont gardés.
+- **Panneaux liés** :
+  - les chiffres clés (évolution par rapport à la comparaison) ;
+  - le tableau comparatif, qui sert aussi de vue accessible ;
+  - les courbes annuelles ;
+  - les profils d'attaque, de cible et d'arme, en part du total de chaque pays ;
+  - le flux attaque → cible → arme ;
+  - le classement dynamique, en cumulé ou en annuel ;
+  - les organisations et leurs pays d'action ;
+  - les incidents les plus meurtriers, avec leur fiche et leur résumé.
+
+  Cliquer une catégorie, un nœud du flux ou une organisation l'ajoute aux
+  filtres ; cliquer un pays, une barre du classement, un lien ou une pastille de
+  pays l'ajoute à la comparaison.
+
+**Choix de lecture** :
+
+- *Étiquettes génériques exclues des liens.* La GTD nomme parfois un type
+  d'acteur plutôt qu'une organisation (« Gunmen » dans 50 pays, « Muslim
+  extremists » dans 51). Les relier inventerait une connexion. Règle
+  (`isNamedGroup`) : pas d'acronyme entre parenthèses et un dernier mot parmi
+  une liste de descripteurs. Ces étiquettes restent visibles et filtrables, et
+  sont marquées « étiquette générique ».
+- *Profils en parts*, pour comparer des pays de tailles très différentes. Les
+  valeurs absolues sont dans les infobulles.
+- *Moyennes classées à partir de 10 incidents* (D16).
+- *Gris pour les pays non sélectionnés* dans le classement : les pays comparés
+  ressortent sans couleur de plus.
+- *Palette vérifiée* avec le validateur de la skill dataviz :
+  - toutes paires confondues, l'écart rose ↔ vert sous deutéranopie n'est que
+    de 7,6, dans la bande 6–8 qui exige un encodage secondaire : c'est le cas
+    (noms partout) ;
+  - l'orange et le bleu ciel ont un contraste inférieur à 3:1, compensé par
+    les étiquettes et le tableau.
+
+**Tâches** : la matrice de l'équipe donne T1, T3, T4, T9 et T12 à la carte. La
+vue couvre aussi, pour les pays, T2 (lecture animée, courbes), T5 (points), T6
+(profils, flux), T7 (organisations), T8 (filtres croisés), T10 (fiche) et T11
+(classement dynamique). C'est à l'équipe de décider s'il faut étendre la ligne
+`map` de `src/core/tasks.ts` ; le module ne déclare que les tâches de la matrice.
+
+**Vérification** : `npm test` (`src/modules/map/model.test.ts` : filtres,
+« inconnu » ≠ 0, moyenne sur valeurs connues, répartitions, liens, couleurs
+stables) et contrôle dans le navigateur. Exemples de résultats :
+- Irak + Syrie + Nigeria sur 2013–2017 : 81 538 morts ;
+- liens Irak → Turquie et Irak → Syrie par l'État islamique ;
+- l'incident le plus meurtrier de la sélection est Tikrit (12 juin 2014,
+  1 570 morts).

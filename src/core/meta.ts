@@ -37,7 +37,7 @@ const LETHALITY: MetricDef = { id: 'lethality', label: 'Morts par incident', uni
 /**
  * Dimensions present in the generated files: country (ISO alpha-3 keys of agg/country_year.json),
  * region and group (keys of agg/region_year.json and agg/group_year.json), and the categorical
- * dictionaries of incidents/<iso3>.json and flow.json.
+ * dictionaries of incidents/<iso3>.json and cube.json. "suicide" filters on the suicide flag ("1" or "0").
  */
 export const DIMENSIONS: readonly DimensionDef[] = [
   { id: 'country', label: 'Pays' },
@@ -46,6 +46,7 @@ export const DIMENSIONS: readonly DimensionDef[] = [
   { id: 'attackType', label: "Type d'attaque" },
   { id: 'targetType', label: 'Type de cible' },
   { id: 'weaponType', label: "Type d'arme" },
+  { id: 'suicide', label: 'Attentat-suicide' },
 ];
 
 export function describeDataset(meta: Meta): DatasetMeta {

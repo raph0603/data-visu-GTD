@@ -1,4 +1,6 @@
-"""Generate src/core/iso3166.ts, the ISO 3166-1 numeric -> alpha-3 table.
+"""Generate src/core/iso3166.ts, the ISO 3166-1 numeric -> alpha-3 and
+alpha-3 -> alpha-2 tables (alpha-2 gives localized names through
+Intl.DisplayNames).
 
 Source: the ISO 3166-1 database of Debian iso-codes, bundled with pycountry
 (version pinned in preprocess/requirements.txt). The output has no timestamp,
@@ -20,6 +22,7 @@ OUTPUT = Path(__file__).resolve().parent.parent / "src" / "core" / "iso3166.ts"
 
 def render() -> str:
     rows = sorted((country.numeric, country.alpha_3) for country in pycountry.countries)
+    alpha2 = sorted((country.alpha_3, country.alpha_2) for country in pycountry.countries)
     numerics = [numeric for numeric, _ in rows]
     alpha3s = [alpha3 for _, alpha3 in rows]
     if len(set(numerics)) != len(numerics) or len(set(alpha3s)) != len(alpha3s):
@@ -32,6 +35,10 @@ def render() -> str:
         "// Keys are ISO 3166-1 numeric codes as 3-digit strings, the format of world-atlas ids.",
         "export const ISO_NUMERIC_TO_ALPHA3: Readonly<Record<string, string>> = {",
         *(f'  "{numeric}": "{alpha3}",' for numeric, alpha3 in rows),
+        "};",
+        "",
+        "export const ISO_ALPHA3_TO_ALPHA2: Readonly<Record<string, string>> = {",
+        *(f'  "{alpha3}": "{code}",' for alpha3, code in alpha2),
         "};",
         "",
     ]
