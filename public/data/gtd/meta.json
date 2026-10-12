@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "id": "gtd",
+  "name": "Global Terrorism Database (START-UMD)",
+  "citation": null,
+  "license": null,
+  "build": { "kind": "dev-stub" },
+  "years": { "first": 1970, "last": 2017, "gaps": [] },
+  "geo": { "dim": "country", "idSpace": "iso3", "parentDim": "region" },
+  "dimensions": [
+    { "id": "country", "label": "Pays" },
+    { "id": "region", "label": "Région" },
+    { "id": "group", "label": "Groupe" },
+    { "id": "attack", "label": "Type d'attaque" },
+    { "id": "target", "label": "Type de cible" },
+    { "id": "weapon", "label": "Type d'arme" }
+  ],
+  "metrics": [
+    { "id": "incidents", "label": "Incidents", "unit": "incidents", "kind": "count" },
+    { "id": "killed", "label": "Morts", "unit": "morts", "kind": "sum" },
+    { "id": "wounded", "label": "Blessés", "unit": "blessés", "kind": "sum" },
+    { "id": "lethality", "label": "Morts par incident", "unit": "morts/incident", "kind": "mean", "of": "killed" }
+  ],
+  "yearlyDims": ["country", "region", "group"],
+  "quality": null
+}
