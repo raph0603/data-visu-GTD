@@ -110,6 +110,7 @@ def test_country_incidents_hold_only_rows_with_coordinates(synthetic):
     assert columns["month"] == [1, None] and columns["day"] == [1, None]
     assert columns["city"] == ["Paris", None]
     assert columns["suicide"] == [1, 0]
+    assert [france["dictionaries"]["weaponType"][i] for i in columns["weaponType"]] == ["Explosives", "Explosives"]
     assert "summary" not in columns
     assert [france["dictionaries"]["group"][i] for i in columns["group"]] == ["Unknown", "Unknown"]
 
@@ -131,15 +132,18 @@ def test_group_series_keep_unknown_as_an_entity(synthetic):
     assert groups["ETA"]["killed"] == {"sum": [0, None, 5, None, 0], "known": [0, None, 1, None, 0]}
 
 
-def test_flow_cube_sums_to_every_incident(synthetic):
-    flow = read_json(synthetic / "flow.json")
-    assert flow["dictionaries"]["country"] == ["", "FRA", "NIC"]
-    assert flow["dictionaries"]["weaponType"] == ["Explosives", "Firearms"]
-    columns = flow["columns"]
-    assert flow["count"] == 5 and sum(columns["incidents"]) == 5
+def test_cube_sums_to_every_incident(synthetic):
+    cube = read_json(synthetic / "cube.json")
+    assert cube["dictionaries"]["country"] == ["", "FRA", "NIC"]
+    assert cube["dictionaries"]["weaponType"] == ["Explosives", "Firearms"]
+    assert cube["dictionaries"]["group"] == ["ETA", "FSLN", "Unknown"]
+    columns = cube["columns"]
+    assert cube["count"] == 5 and sum(columns["incidents"]) == 5
     # The Yugoslavia row keeps its place in the cube with the country "".
     yugoslavia = columns["country"].index(0)
     assert (columns["year"][yugoslavia], columns["killedSum"][yugoslavia]) == (1992, 5)
+    assert cube["dictionaries"]["group"][columns["group"][yugoslavia]] == "ETA"
+    assert sorted(columns["suicide"]) == [0, 0, 0, 0, 1]
     assert sum(columns["killedKnown"]) == 4 and sum(columns["woundedKnown"]) == 4
 
 
@@ -262,7 +266,7 @@ def test_two_runs_write_identical_files(real, tmp_path):
 def test_groups_and_flow_count_every_row(real, raw):
     groups = read_json(real / "agg" / "group_year.json")["entities"]
     assert sum(total(entity["incidents"]) for entity in groups.values()) == len(raw)
-    flow = read_json(real / "flow.json")["columns"]
-    assert sum(flow["incidents"]) == len(raw)
-    assert sum(flow["killedSum"]) == pytest.approx(raw["killed"].sum())
-    assert sum(flow["killedKnown"]) == raw["killed"].count()
+    cube = read_json(real / "cube.json")["columns"]
+    assert sum(cube["incidents"]) == len(raw)
+    assert sum(cube["killedSum"]) == pytest.approx(raw["killed"].sum())
+    assert sum(cube["killedKnown"]) == raw["killed"].count()

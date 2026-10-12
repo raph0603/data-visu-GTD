@@ -16,13 +16,13 @@ describe('createDataApi', () => {
     expect(fetchJson).toHaveBeenCalledTimes(1);
     expect(fetchJson).toHaveBeenCalledWith('data/gtd/agg/region_year.json');
 
-    await Promise.allSettled([api.countryYear(), api.groupYear(), api.topEvents(), api.flow(), api.incidents('NGA'), api.summaries('NGA')]);
+    await Promise.allSettled([api.countryYear(), api.groupYear(), api.topEvents(), api.cube(), api.incidents('NGA'), api.summaries('NGA')]);
     expect(fetchJson.mock.calls.map((c) => c[0])).toEqual([
       'data/gtd/agg/region_year.json',
       'data/gtd/agg/country_year.json',
       'data/gtd/agg/group_year.json',
       'data/gtd/top_events.json',
-      'data/gtd/flow.json',
+      'data/gtd/cube.json',
       'data/gtd/incidents/NGA.json',
       'data/gtd/summaries/NGA.json',
     ]);

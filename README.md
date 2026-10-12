@@ -52,7 +52,7 @@ src/core/            figé le 7 oct. ; modification par revue à 2 personnes
   tasks.ts           utilisateurs U1–U4, tâches T1–T12, matrices (source de vérité = tableur d'équipe)
   coverage.ts        contrôle de cohérence utilisateurs ↔ tâches ↔ vues ↔ modules
   contracts.ts       un type, un validateur et un chargeur par fichier JSON (meta, agg/country_year,
-                     agg/region_year, agg/group_year, top_events, flow, incidents/<iso3>, summaries/<iso3>) ;
+                     agg/region_year, agg/group_year, top_events, cube, incidents/<iso3>, summaries/<iso3>) ;
                      écrits par preprocess/preprocess.py
   meta.ts            DatasetMeta = meta.json validé + vocabulaire des vues (métriques dont « morts par
                      incident », dimensions) ; metricValue() pour lire n'importe quelle métrique
@@ -136,10 +136,10 @@ Les décisions sur les données (fond de carte, correspondance des pays, encodag
   | `meta.json`, `agg/country_year.json`, `agg/region_year.json` | toutes les vues | au démarrage |
   | `agg/group_year.json` (D13) | leaderboard, T7 | à la demande |
   | `top_events.json` | atlas, journalistes | à la demande |
-  | `flow.json` (D14) | diagramme de flux, T6 | à la demande |
+  | `cube.json` (D14) | filtres croisés de la vue pays, flux, T6 T8 | à la demande |
   | `incidents/<iso3>.json` (avec `suicide`, D15) | atlas, T5 T8 | au zoom sur un pays |
   | `summaries/<iso3>.json` (D12) | fiche incident, T10 | au clic |
 
-- **Carte par pays** : livrée pour T1, T3, T4, T9, T12 (choroplèthe en échelle log., tooltip avec rang, fenêtre réglable, période de comparaison, fiche pays avec évolution et courbe annuelle, top 10 avec variations de rang).
+- **Carte par pays** (D18) : tableau de bord centré sur les pays. Filtres croisés sur tous les panneaux, comparaison de 6 pays. La carte montre la choroplèthe, les incidents exacts et les liens par organisations communes ; s'y ajoutent chiffres clés, courbes, profils d'attaque, flux attaque → cible → arme, classement dynamique, organisations, incidents et fiches.
 - **Atlas, leaderboard, flux** : squelettes.
 - **Décisions ouvertes** : Porto Rico et îles Vierges (D11.3) ; publication en ligne des fichiers de données (D17).

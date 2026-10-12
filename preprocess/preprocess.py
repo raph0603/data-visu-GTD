@@ -1,6 +1,6 @@
 """Builds public/data/gtd/ from the raw GTD CSV, in the formats of
 src/core/contracts.ts: meta.json, agg/country_year.json, agg/region_year.json,
-agg/group_year.json, top_events.json, flow.json, incidents/<iso3>.json and
+agg/group_year.json, top_events.json, cube.json, incidents/<iso3>.json and
 summaries/<iso3>.json.
 
 The output is deterministic (sorted keys, stable row order, no timestamp), so
@@ -43,12 +43,20 @@ FIELDS = [
     "event_id", "year", "month", "day", "country", "region", "city", "latitude", "longitude",
     "killed", "wounded", "group", "attack_type", "target_type", "weapon_type", "suicide", "summary",
 ]
-# Categorical dimensions of flow.json: contract name -> row field.
-FLOW_DIMENSIONS = (
+# Categorical dimensions of cube.json: contract name -> row field.
+CUBE_DIMENSIONS = (
     ("country", "iso3"),
     ("attackType", "attack_type"),
     ("targetType", "target_type"),
     ("weaponType", "weapon_type"),
+    ("group", "group"),
+)
+# Dictionary-coded columns of incidents/<iso3>.json: contract name -> row field.
+INCIDENT_DICTIONARIES = (
+    ("attackType", "attack_type"),
+    ("targetType", "target_type"),
+    ("weaponType", "weapon_type"),
+    ("group", "group"),
 )
 
 
@@ -190,14 +198,15 @@ def group_year(rows: pd.DataFrame, axis: YearAxis) -> dict:
     }
 
 
-def flow(rows: pd.DataFrame, axis: YearAxis) -> dict:
-    """Sparse cube year x country x attack x target x weapon, column by column.
+def cube(rows: pd.DataFrame, axis: YearAxis) -> dict:
+    """Sparse cube year x country x attack x target x weapon x group x suicide,
+    column by column: every filter of the views applies to it (D14).
 
     Rows without a representable country have the country code "" so that the
     cube still sums to every incident.
     """
-    keys = ["year", *(field for _, field in FLOW_DIMENSIONS)]
-    cube = (
+    keys = ["year", *(field for _, field in CUBE_DIMENSIONS), "suicide"]
+    table = (
         rows.groupby(keys, sort=True)
         .agg(
             incidents=("event_id", "size"),
@@ -208,19 +217,20 @@ def flow(rows: pd.DataFrame, axis: YearAxis) -> dict:
         )
         .reset_index()
     )
-    dictionaries = {name: sorted(cube[field].unique().tolist()) for name, field in FLOW_DIMENSIONS}
+    dictionaries = {name: sorted(table[field].unique().tolist()) for name, field in CUBE_DIMENSIONS}
     positions = {name: {value: i for i, value in enumerate(values)} for name, values in dictionaries.items()}
-    columns: dict[str, list] = {"year": [int(year) for year in cube["year"]]}
-    for name, field in FLOW_DIMENSIONS:
-        columns[name] = [positions[name][value] for value in cube[field]]
-    columns["incidents"] = [int(n) for n in cube["incidents"]]
+    columns: dict[str, list] = {"year": [int(year) for year in table["year"]]}
+    for name, field in CUBE_DIMENSIONS:
+        columns[name] = [positions[name][value] for value in table[field]]
+    columns["suicide"] = [int(value) for value in table["suicide"]]
+    columns["incidents"] = [int(n) for n in table["incidents"]]
     for metric in ("killed", "wounded"):
-        columns[f"{metric}Sum"] = [number(value) for value in cube[f"{metric}_sum"]]
-        columns[f"{metric}Known"] = [int(n) for n in cube[f"{metric}_known"]]
+        columns[f"{metric}Sum"] = [number(value) for value in table[f"{metric}_sum"]]
+        columns[f"{metric}Known"] = [int(n) for n in table[f"{metric}_known"]]
     return {
         "schemaVersion": SCHEMA_VERSION,
         "years": {"first": axis.first, "last": axis.last},
-        "count": len(cube),
+        "count": len(table),
         "dictionaries": dictionaries,
         "columns": columns,
     }
@@ -261,10 +271,7 @@ def top_events(rows: pd.DataFrame) -> dict:
 
 def country_incidents(iso3: str, own: pd.DataFrame) -> dict:
     located = own[own["has_coordinates"]]
-    dictionaries = {
-        name: sorted(located[column].unique().tolist())
-        for name, column in (("attackType", "attack_type"), ("targetType", "target_type"), ("group", "group"))
-    }
+    dictionaries = {name: sorted(located[column].unique().tolist()) for name, column in INCIDENT_DICTIONARIES}
     positions = {name: {value: i for i, value in enumerate(values)} for name, values in dictionaries.items()}
     return {
         "schemaVersion": SCHEMA_VERSION,
@@ -282,6 +289,7 @@ def country_incidents(iso3: str, own: pd.DataFrame) -> dict:
             "city": [optional(value) for value in located["city"]],
             "attackType": [positions["attackType"][value] for value in located["attack_type"]],
             "targetType": [positions["targetType"][value] for value in located["target_type"]],
+            "weaponType": [positions["weaponType"][value] for value in located["weapon_type"]],
             "group": [positions["group"][value] for value in located["group"]],
             "killed": [None if pd.isna(value) else number(value) for value in located["killed"]],
             "wounded": [None if pd.isna(value) else number(value) for value in located["wounded"]],
@@ -360,7 +368,7 @@ def build(source: Path = RAW_CSV, out: Path = DEFAULT_OUT) -> None:
     write_json(out / "agg" / "region_year.json", region_year(rows, axis))
     write_json(out / "agg" / "group_year.json", group_year(rows, axis))
     write_json(out / "top_events.json", top_events(rows))
-    write_json(out / "flow.json", flow(rows, axis))
+    write_json(out / "cube.json", cube(rows, axis))
     mapped = rows[rows["iso3"] != ""]
     by_country = dict(tuple(mapped.groupby("iso3")))
     for iso3 in sorted(drawable_iso3()):

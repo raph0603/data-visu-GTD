@@ -4,7 +4,7 @@ import {
   fetchMeta,
   parseCountryIncidentsFile,
   parseCountryYearFile,
-  parseFlowFile,
+  parseCubeFile,
   parseGroupYearFile,
   parseMeta,
   parseRegionYearFile,
@@ -12,7 +12,7 @@ import {
   parseTopEventsFile,
   type CountryIncidentsFile,
   type CountryYearFile,
-  type FlowFile,
+  type CubeFile,
   type Meta,
   type SummariesFile,
   type TopEventsFile,
@@ -65,7 +65,12 @@ const incidents: CountryIncidentsFile = {
   iso3: "FRA",
   count: 2,
   withoutCoordinates: 1,
-  dictionaries: { attackType: ["Bombing/Explosion"], targetType: ["Business"], group: ["Unknown"] },
+  dictionaries: {
+    attackType: ["Bombing/Explosion"],
+    targetType: ["Business"],
+    weaponType: ["Explosives"],
+    group: ["Unknown"],
+  },
   columns: {
     eventId: ["199001010001", "199201010001"],
     year: [1990, 1992],
@@ -76,6 +81,7 @@ const incidents: CountryIncidentsFile = {
     city: ["Paris", null],
     attackType: [0, 0],
     targetType: [0, 0],
+    weaponType: [0, 0],
     group: [0, 0],
     killed: [4, null],
     wounded: [1.5, 0],
@@ -90,7 +96,7 @@ const summaries: SummariesFile = {
 };
 
 // Two combinations in 1990 (one without a representable country, one in France), one in 1992.
-const flow: FlowFile = {
+const cube: CubeFile = {
   schemaVersion: 1,
   years: { first: 1990, last: 1992 },
   count: 3,
@@ -99,6 +105,7 @@ const flow: FlowFile = {
     attackType: ["Armed Assault", "Bombing/Explosion"],
     targetType: ["Business", "Police"],
     weaponType: ["Explosives", "Firearms"],
+    group: ["ETA", "Unknown"],
   },
   columns: {
     year: [1990, 1990, 1992],
@@ -106,6 +113,8 @@ const flow: FlowFile = {
     attackType: [0, 1, 1],
     targetType: [1, 0, 0],
     weaponType: [1, 0, 0],
+    group: [0, 1, 1],
+    suicide: [0, 1, 0],
     incidents: [1, 2, 1],
     killedSum: [5, 4, 0],
     killedKnown: [1, 2, 1],
@@ -274,39 +283,45 @@ describe("parseSummariesFile", () => {
   });
 });
 
-describe("parseFlowFile", () => {
+describe("parseCubeFile", () => {
   it("accepts a valid file", () => {
-    expect(parseFlowFile(clone(flow), meta)).toEqual(flow);
+    expect(parseCubeFile(clone(cube), meta)).toEqual(cube);
+  });
+
+  it("rejects a suicide flag other than 0 or 1", () => {
+    const value = clone(cube);
+    value.columns.suicide = [0, 1, 2];
+    expect(() => parseCubeFile(value, meta)).toThrow(/columns\.suicide\[2\]/);
   });
 
   it("rejects a row in a year without data", () => {
-    const value = clone(flow);
+    const value = clone(cube);
     value.columns.year = [1990, 1991, 1992];
-    expect(() => parseFlowFile(value, meta)).toThrow(/columns\.year\[1\]: 1991 has no data/);
+    expect(() => parseCubeFile(value, meta)).toThrow(/columns\.year\[1\]: 1991 has no data/);
   });
 
   it("rejects a dictionary index out of range", () => {
-    const value = clone(flow);
+    const value = clone(cube);
     value.columns.weaponType = [1, 0, 2];
-    expect(() => parseFlowFile(value, meta)).toThrow(/columns\.weaponType\[2\]/);
+    expect(() => parseCubeFile(value, meta)).toThrow(/columns\.weaponType\[2\]/);
   });
 
   it("rejects more known values than incidents in a row", () => {
-    const value = clone(flow);
+    const value = clone(cube);
     value.columns.killedKnown = [1, 3, 1];
-    expect(() => parseFlowFile(value, meta)).toThrow(/columns\.killedKnown\[1\]/);
+    expect(() => parseCubeFile(value, meta)).toThrow(/columns\.killedKnown\[1\]/);
   });
 
   it("rejects a country that is neither ISO alpha-3 nor empty", () => {
-    const value = clone(flow);
+    const value = clone(cube);
     value.dictionaries.country = ["", "France"];
-    expect(() => parseFlowFile(value, meta)).toThrow(/dictionaries\.country\.1/);
+    expect(() => parseCubeFile(value, meta)).toThrow(/dictionaries\.country\.1/);
   });
 
   it("rejects an empty combination", () => {
-    const value = clone(flow);
+    const value = clone(cube);
     value.columns.incidents = [1, 0, 1];
-    expect(() => parseFlowFile(value, meta)).toThrow(/columns\.incidents\[1\]/);
+    expect(() => parseCubeFile(value, meta)).toThrow(/columns\.incidents\[1\]/);
   });
 });
 

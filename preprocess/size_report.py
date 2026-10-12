@@ -47,7 +47,7 @@ def main() -> None:
     print(f"{'initial load':<32}{'':>14}{kib(initial_gzip):>14}"
           f"  ({initial_gzip / BUDGET_GZIP:.1%} of the 2 MB budget)")
 
-    for name in ("agg/group_year.json", "top_events.json", "flow.json"):
+    for name in ("agg/group_year.json", "top_events.json", "cube.json"):
         raw, packed = sizes((out / name).read_bytes())
         print(f"{name + ' (on demand)':<32}{kib(raw):>14}{kib(packed):>14}")
 

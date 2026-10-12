@@ -2,7 +2,7 @@ import { json } from 'd3';
 import {
   fetchCountryIncidents,
   fetchCountryYear,
-  fetchFlow,
+  fetchCube,
   fetchGroupYear,
   fetchMeta,
   fetchRegionYear,
@@ -11,7 +11,7 @@ import {
   type CountryIncidentsFile,
   type CountryYearFile,
   type FetchJson,
-  type FlowFile,
+  type CubeFile,
   type GroupYearFile,
   type Meta,
   type RegionYearFile,
@@ -26,7 +26,8 @@ export interface DataApi {
   regionYear(): Promise<RegionYearFile>;
   groupYear(): Promise<GroupYearFile>;
   topEvents(): Promise<TopEventsFile>;
-  flow(): Promise<FlowFile>;
+  /** Every incident aggregated by year, country, attack, target, weapon, group and suicide (D14). */
+  cube(): Promise<CubeFile>;
   incidents(iso3: string): Promise<CountryIncidentsFile>;
   /** Loaded when an incident sheet opens (T10), not with the points. */
   summaries(iso3: string): Promise<SummariesFile>;
@@ -57,7 +58,7 @@ export function createDataApi(datasetId: string, meta: Meta, fetchJson: FetchJso
     regionYear: () => memo('agg/region_year', () => fetchRegionYear(datasetId, meta, fetchJson)),
     groupYear: () => memo('agg/group_year', () => fetchGroupYear(datasetId, meta, fetchJson)),
     topEvents: () => memo('top_events', () => fetchTopEvents(datasetId, meta, fetchJson)),
-    flow: () => memo('flow', () => fetchFlow(datasetId, meta, fetchJson)),
+    cube: () => memo('cube', () => fetchCube(datasetId, meta, fetchJson)),
     incidents: (iso3) => memo(`incidents/${iso3}`, () => fetchCountryIncidents(datasetId, iso3, meta, fetchJson)),
     summaries: (iso3) => memo(`summaries/${iso3}`, () => fetchSummaries(datasetId, iso3, fetchJson)),
   };
