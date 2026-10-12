@@ -366,7 +366,7 @@ export function parseCountryIncidentsFile(value: unknown, meta: Meta): CountryIn
   column("longitude", (entry, path) => amount(entry, path, -180, 180));
   column("city", nullable(text));
   for (const name of ["attackType", "targetType", "group"]) {
-    column(name, (entry, path) => integer(entry, path, 0, sizes[name] - 1));
+    column(name, (entry, path) => integer(entry, path, 0, (sizes[name] ?? 0) - 1));
   }
   column("killed", nullable(amount));
   column("wounded", nullable(amount));

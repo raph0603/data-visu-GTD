@@ -11,10 +11,13 @@ type EntityPrefixes = {
 function prefixSums(values: YearValues): Prefix {
   const prefix = new Float64Array(values.length + 1);
   values.forEach((value, i) => {
-    prefix[i + 1] = prefix[i] + (value ?? 0);
+    prefix[i + 1] = (prefix[i] ?? 0) + (value ?? 0);
   });
   return prefix;
 }
+
+/** Sum of values[a..b-1], read from their prefix sums. */
+const between = (prefix: Prefix, a: number, b: number): number => (prefix[b] ?? 0) - (prefix[a] ?? 0);
 
 /**
  * Answers "value of an entity for a metric over a window of years" in O(1),
@@ -67,12 +70,12 @@ export class YearlyIndex {
     const span = this.span(key, from, to);
     if (span === undefined) return Number.NaN;
     const { prefix, a, b } = span;
-    const incidents = prefix.incidents[b] - prefix.incidents[a];
+    const incidents = between(prefix.incidents, a, b);
     if (metric === "incidents") return incidents;
     if (incidents === 0) return 0;
     const series = prefix[metric as CasualtyMetric];
-    const known = series.known[b] - series.known[a];
-    return known === 0 ? Number.NaN : series.sum[b] - series.sum[a];
+    const known = between(series.known, a, b);
+    return known === 0 ? Number.NaN : between(series.sum, a, b);
   }
 
   /** Share of the window's incidents whose value of metric is known; NaN without incident. */
@@ -80,11 +83,11 @@ export class YearlyIndex {
     const span = this.span(key, from, to);
     if (span === undefined) return Number.NaN;
     const { prefix, a, b } = span;
-    const incidents = prefix.incidents[b] - prefix.incidents[a];
+    const incidents = between(prefix.incidents, a, b);
     if (incidents === 0) return Number.NaN;
     if (metric === "incidents") return 1;
     const series = prefix[metric as CasualtyMetric];
-    return (series.known[b] - series.known[a]) / incidents;
+    return between(series.known, a, b) / incidents;
   }
 
   /** Prefix bounds of the window clipped to the covered years, or undefined without data. */
@@ -93,7 +96,7 @@ export class YearlyIndex {
     const a = Math.max(from, this.first) - this.first;
     const b = Math.min(to, this.last) - this.first + 1;
     if (a >= b) return undefined;
-    const yearsWithData = b - a - (this.gapPrefix[b] - this.gapPrefix[a]);
+    const yearsWithData = b - a - between(this.gapPrefix, a, b);
     const prefix = this.prefixes.get(key);
     if (yearsWithData === 0 || prefix === undefined) return undefined;
     return { prefix, a, b };
