@@ -1,6 +1,7 @@
 """Builds public/data/gtd/ from the raw GTD CSV, in the formats of
 src/core/contracts.ts: meta.json, agg/country_year.json, agg/region_year.json,
-top_events.json and incidents/<iso3>.json.
+agg/group_year.json, top_events.json, flow.json, incidents/<iso3>.json and
+summaries/<iso3>.json.
 
 The output is deterministic (sorted keys, stable row order, no timestamp), so
 two runs on the same CSV write byte-identical files.
@@ -23,7 +24,9 @@ import pycountry
 from country_geometry import drawable_iso3
 from country_mapping import load_mapping
 from gtd_source import (
+    DATASET_CITATION,
     DATASET_ID,
+    DATASET_LICENSE,
     DATASET_TITLE,
     ENCODING,
     RAW_CSV,
@@ -38,8 +41,15 @@ TOP_EVENTS_PER_YEAR = 5
 NOT_REPRESENTABLE_LABEL = "Not representable"
 FIELDS = [
     "event_id", "year", "month", "day", "country", "region", "city", "latitude", "longitude",
-    "killed", "wounded", "group", "attack_type", "target_type", "summary",
+    "killed", "wounded", "group", "attack_type", "target_type", "weapon_type", "suicide", "summary",
 ]
+# Categorical dimensions of flow.json: contract name -> row field.
+FLOW_DIMENSIONS = (
+    ("country", "iso3"),
+    ("attackType", "attack_type"),
+    ("targetType", "target_type"),
+    ("weaponType", "weapon_type"),
+)
 
 
 def number(value: float) -> int | float:
@@ -167,6 +177,55 @@ def region_year(rows: pd.DataFrame, axis: YearAxis) -> dict:
     }
 
 
+def group_year(rows: pd.DataFrame, axis: YearAxis) -> dict:
+    """Every perpetrator group, keyed by its source name; "Unknown" is kept as an entity."""
+    aggregates = yearly_aggregates(rows, "group")
+    return {
+        "schemaVersion": SCHEMA_VERSION,
+        "years": {"first": axis.first, "last": axis.last},
+        "entities": {
+            group: entity_years(aggregates, group, axis, group)
+            for group in sorted(rows["group"].unique())
+        },
+    }
+
+
+def flow(rows: pd.DataFrame, axis: YearAxis) -> dict:
+    """Sparse cube year x country x attack x target x weapon, column by column.
+
+    Rows without a representable country have the country code "" so that the
+    cube still sums to every incident.
+    """
+    keys = ["year", *(field for _, field in FLOW_DIMENSIONS)]
+    cube = (
+        rows.groupby(keys, sort=True)
+        .agg(
+            incidents=("event_id", "size"),
+            killed_sum=("killed", "sum"),
+            killed_known=("killed", "count"),
+            wounded_sum=("wounded", "sum"),
+            wounded_known=("wounded", "count"),
+        )
+        .reset_index()
+    )
+    dictionaries = {name: sorted(cube[field].unique().tolist()) for name, field in FLOW_DIMENSIONS}
+    positions = {name: {value: i for i, value in enumerate(values)} for name, values in dictionaries.items()}
+    columns: dict[str, list] = {"year": [int(year) for year in cube["year"]]}
+    for name, field in FLOW_DIMENSIONS:
+        columns[name] = [positions[name][value] for value in cube[field]]
+    columns["incidents"] = [int(n) for n in cube["incidents"]]
+    for metric in ("killed", "wounded"):
+        columns[f"{metric}Sum"] = [number(value) for value in cube[f"{metric}_sum"]]
+        columns[f"{metric}Known"] = [int(n) for n in cube[f"{metric}_known"]]
+    return {
+        "schemaVersion": SCHEMA_VERSION,
+        "years": {"first": axis.first, "last": axis.last},
+        "count": len(cube),
+        "dictionaries": dictionaries,
+        "columns": columns,
+    }
+
+
 def by_deadliness(rows: pd.DataFrame) -> pd.DataFrame:
     """Known deaths first, most first; then wounded; then event id for ties."""
     return rows.sort_values(
@@ -226,8 +285,19 @@ def country_incidents(iso3: str, own: pd.DataFrame) -> dict:
             "group": [positions["group"][value] for value in located["group"]],
             "killed": [None if pd.isna(value) else number(value) for value in located["killed"]],
             "wounded": [None if pd.isna(value) else number(value) for value in located["wounded"]],
-            "summary": [optional(value) for value in located["summary"]],
+            "suicide": [int(value) for value in located["suicide"]],
         },
+    }
+
+
+def country_summaries(iso3: str, own: pd.DataFrame) -> dict:
+    """Free-text summaries of every incident of the country that has one, with or
+    without coordinates, loaded only when an incident sheet is opened (D12)."""
+    described = own[own["summary"].notna()]
+    return {
+        "schemaVersion": SCHEMA_VERSION,
+        "iso3": iso3,
+        "summaries": dict(zip(described["event_id"], described["summary"])),
     }
 
 
@@ -239,7 +309,12 @@ def meta(rows: pd.DataFrame, axis: YearAxis, source: Path) -> dict:
     total = len(rows)
     return {
         "schemaVersion": SCHEMA_VERSION,
-        "dataset": {"id": DATASET_ID, "title": DATASET_TITLE, "citation": None, "license": None},
+        "dataset": {
+            "id": DATASET_ID,
+            "title": DATASET_TITLE,
+            "citation": DATASET_CITATION,
+            "license": DATASET_LICENSE,
+        },
         "build": {
             "kind": "preprocessed",
             "sourceFile": source.name,
@@ -283,12 +358,15 @@ def build(source: Path = RAW_CSV, out: Path = DEFAULT_OUT) -> None:
     write_json(out / "meta.json", meta(rows, axis, source))
     write_json(out / "agg" / "country_year.json", country_year(rows, axis))
     write_json(out / "agg" / "region_year.json", region_year(rows, axis))
+    write_json(out / "agg" / "group_year.json", group_year(rows, axis))
     write_json(out / "top_events.json", top_events(rows))
+    write_json(out / "flow.json", flow(rows, axis))
     mapped = rows[rows["iso3"] != ""]
     by_country = dict(tuple(mapped.groupby("iso3")))
     for iso3 in sorted(drawable_iso3()):
         own = by_country.get(iso3, mapped.iloc[0:0])
         write_json(out / "incidents" / f"{iso3}.json", country_incidents(iso3, own))
+        write_json(out / "summaries" / f"{iso3}.json", country_summaries(iso3, own))
 
 
 def main() -> None:

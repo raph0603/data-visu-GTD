@@ -12,8 +12,11 @@ import { fixtureMeta } from './fixtures/meta';
 const offline: DataApi = {
   countryYear: () => Promise.reject(new Error('offline')),
   regionYear: () => Promise.reject(new Error('offline')),
+  groupYear: () => Promise.reject(new Error('offline')),
   topEvents: () => Promise.reject(new Error('offline')),
+  flow: () => Promise.reject(new Error('offline')),
   incidents: () => Promise.reject(new Error('offline')),
+  summaries: () => Promise.reject(new Error('offline')),
 };
 
 function context() {

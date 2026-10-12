@@ -72,6 +72,9 @@ export type CountryYearFile = YearlyFile<CountryYears> & { notRepresentable: Ent
 /** agg/region_year.json, keyed by source region label. */
 export type RegionYearFile = YearlyFile;
 
+/** agg/group_year.json, keyed by source group name; "Unknown" holds the unattributed incidents. */
+export type GroupYearFile = YearlyFile;
+
 export type IncidentSummary = {
   eventId: string;
   year: number;
@@ -116,7 +119,48 @@ export type CountryIncidentsFile = {
     group: number[];
     killed: (number | null)[];
     wounded: (number | null)[];
-    summary: (string | null)[];
+    /** 1 for a suicide attack, else 0. */
+    suicide: number[];
+  };
+};
+
+/**
+ * summaries/<iso3>.json: free-text summary by event id, for the incidents of the
+ * country that have one (with or without coordinates). Kept out of
+ * incidents/<iso3>.json, of which they were 80 % of the weight (D12).
+ */
+export type SummariesFile = {
+  schemaVersion: 1;
+  iso3: string;
+  summaries: Record<string, string>;
+};
+
+export const FLOW_DIMENSIONS = ["country", "attackType", "targetType", "weaponType"] as const;
+export type FlowDimension = (typeof FLOW_DIMENSIONS)[number];
+
+/**
+ * flow.json: sparse cube year x country x attack type x target type x weapon
+ * type, column by column, one row per combination with at least one incident.
+ * The country dictionary holds ISO alpha-3 codes and "" for incidents without a
+ * representable country, so that the cube sums to every incident.
+ */
+export type FlowFile = {
+  schemaVersion: 1;
+  years: { first: number; last: number };
+  count: number;
+  dictionaries: Record<FlowDimension, string[]>;
+  columns: {
+    year: number[];
+    /** Indexes into dictionaries.country, attackType, targetType and weaponType. */
+    country: number[];
+    attackType: number[];
+    targetType: number[];
+    weaponType: number[];
+    incidents: number[];
+    killedSum: number[];
+    killedKnown: number[];
+    woundedSum: number[];
+    woundedKnown: number[];
   };
 };
 
@@ -306,6 +350,10 @@ export function parseRegionYearFile(value: unknown, meta: Meta): RegionYearFile 
   return value as RegionYearFile;
 }
 
+export function parseGroupYearFile(value: unknown, meta: Meta): GroupYearFile {
+  return parseRegionYearFile(value, meta);
+}
+
 function incidentYear(value: unknown, path: string, meta: Meta): number {
   const year = integer(value, path, meta.years.first, meta.years.last);
   return meta.years.gaps.includes(year) ? fail(path, `${year} has no data`) : year;
@@ -370,8 +418,53 @@ export function parseCountryIncidentsFile(value: unknown, meta: Meta): CountryIn
   }
   column("killed", nullable(amount));
   column("wounded", nullable(amount));
-  column("summary", nullable(text));
+  column("suicide", (entry, path) => integer(entry, path, 0, 1));
   return value as CountryIncidentsFile;
+}
+
+export function parseSummariesFile(value: unknown): SummariesFile {
+  const root = record(value, "");
+  schemaVersion(root);
+  if (!/^[A-Z]{3}$/.test(text(root.iso3, "iso3"))) fail("iso3", "expected an ISO alpha-3 code");
+  for (const [eventId, summary] of Object.entries(record(root.summaries, "summaries"))) {
+    text(summary, `summaries.${eventId}`);
+  }
+  return value as SummariesFile;
+}
+
+export function parseFlowFile(value: unknown, meta: Meta): FlowFile {
+  const root = record(value, "");
+  schemaVersion(root);
+  checkYears(root, meta);
+  const n = integer(root.count, "count");
+
+  const dictionaries = record(root.dictionaries, "dictionaries");
+  const sizes = {} as Record<FlowDimension, number>;
+  for (const name of FLOW_DIMENSIONS) {
+    const entries = list(dictionaries[name], `dictionaries.${name}`);
+    entries.forEach((entry, i) => {
+      const label = text(entry, `dictionaries.${name}.${i}`);
+      if (name === "country" && !/^([A-Z]{3})?$/.test(label)) {
+        fail(`dictionaries.country.${i}`, 'expected an ISO alpha-3 code or ""');
+      }
+    });
+    sizes[name] = entries.length;
+  }
+
+  const columns = record(root.columns, "columns");
+  const column = (name: string) => list(columns[name], `columns.${name}`, n);
+  column("year").forEach((entry, i) => incidentYear(entry, `columns.year[${i}]`, meta));
+  for (const name of FLOW_DIMENSIONS) {
+    column(name).forEach((entry, i) => integer(entry, `columns.${name}[${i}]`, 0, sizes[name] - 1));
+  }
+  const incidents = column("incidents").map((entry, i) => integer(entry, `columns.incidents[${i}]`, 1));
+  for (const metric of ["killed", "wounded"]) {
+    column(`${metric}Sum`).forEach((entry, i) => amount(entry, `columns.${metric}Sum[${i}]`));
+    column(`${metric}Known`).forEach((entry, i) =>
+      integer(entry, `columns.${metric}Known[${i}]`, 0, incidents[i]),
+    );
+  }
+  return value as FlowFile;
 }
 
 export type FetchJson = (url: string) => Promise<unknown>;
@@ -409,6 +502,16 @@ export function fetchRegionYear(dataset: string, meta: Meta, fetchJson: FetchJso
   );
 }
 
+export function fetchGroupYear(dataset: string, meta: Meta, fetchJson: FetchJson = json) {
+  return fetchParsed(dataUrl(dataset, "agg/group_year.json"), fetchJson, (value) =>
+    parseGroupYearFile(value, meta),
+  );
+}
+
+export function fetchFlow(dataset: string, meta: Meta, fetchJson: FetchJson = json) {
+  return fetchParsed(dataUrl(dataset, "flow.json"), fetchJson, (value) => parseFlowFile(value, meta));
+}
+
 export function fetchTopEvents(dataset: string, meta: Meta, fetchJson: FetchJson = json) {
   return fetchParsed(dataUrl(dataset, "top_events.json"), fetchJson, (value) =>
     parseTopEventsFile(value, meta),
@@ -424,4 +527,8 @@ export function fetchCountryIncidents(
   return fetchParsed(dataUrl(dataset, `incidents/${iso3}.json`), fetchJson, (value) =>
     parseCountryIncidentsFile(value, meta),
   );
+}
+
+export function fetchSummaries(dataset: string, iso3: string, fetchJson: FetchJson = json) {
+  return fetchParsed(dataUrl(dataset, `summaries/${iso3}.json`), fetchJson, parseSummariesFile);
 }

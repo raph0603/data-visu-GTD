@@ -10,26 +10,27 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from gtd_source import COLUMNS, ENCODING, RAW_CSV, read_gtd
+from gtd_source import COLUMNS, DATASET_CITATION, ENCODING, RAW_CSV, read_gtd
 from preprocess import build
 
 # Five hand-written rows, in the source column layout. Expected values below
 # are derived by hand from these rows, not by the code under test.
 SYNTHETIC_ROWS = [
-    # event, year, month, day, country, region, city, lat, lon, killed, wounded, group, attack, target, summary
+    # event, year, month, day, country, region, city, lat, lon, killed, wounded, group, attack, target,
+    # weapon, suicide, summary
     (199001010001, 1990, 1, 1, "France", "Western Europe", "Paris", 48.85, 2.35, 2, None,
-     "Unknown", "Bombing/Explosion", "Business", "A “quoted” summary"),
+     "Unknown", "Bombing/Explosion", "Business", "Explosives", 1, "A “quoted” summary"),
     (199001020001, 1990, 1, 2, "France", "Western Europe", "Lyon", None, None, None, 3,
-     "ETA", "Armed Assault", "Police", None),
+     "ETA", "Armed Assault", "Police", "Firearms", 0, "Without coordinates"),
     (199201010001, 1992, 0, 0, "Guadeloupe", "Central America & Caribbean", None, 16.24, -61.53, 0, 0,
-     "Unknown", "Bombing/Explosion", "Business", None),
+     "Unknown", "Bombing/Explosion", "Business", "Explosives", 0, None),
     (199201020001, 1992, 3, 4, "Yugoslavia", "Eastern Europe", "Belgrade", 44.8, 20.47, 5, 1,
-     "ETA", "Armed Assault", "Police", None),
+     "ETA", "Armed Assault", "Police", "Firearms", 0, None),
     (199401010001, 1994, 5, 6, "Nicaragua", "Central America & Caribbean", "Managua", 12.64,
-     -86185896.0, 1, 2, "FSLN", "Assassination", "Government (General)", None),
+     -86185896.0, 1, 2, "FSLN", "Assassination", "Government (General)", "Firearms", 0, None),
 ]
 FIELDS = ["event_id", "year", "month", "day", "country", "region", "city", "latitude", "longitude",
-          "killed", "wounded", "group", "attack_type", "target_type", "summary"]
+          "killed", "wounded", "group", "attack_type", "target_type", "weapon_type", "suicide", "summary"]
 
 
 def read_json(path: Path):
@@ -58,7 +59,8 @@ def test_meta_counts_rows_years_and_quality(synthetic):
         "withoutCoordinatesShare": 0.4,
     }
     assert meta["build"]["kind"] == "preprocessed"
-    assert meta["dataset"]["citation"] is None and meta["dataset"]["license"] is None
+    assert meta["dataset"]["citation"] == DATASET_CITATION
+    assert "non-commercial" in meta["dataset"]["license"]
 
 
 def test_country_series_keep_unknown_apart_from_zero(synthetic):
@@ -107,8 +109,38 @@ def test_country_incidents_hold_only_rows_with_coordinates(synthetic):
     assert columns["eventId"] == ["199001010001", "199201010001"]
     assert columns["month"] == [1, None] and columns["day"] == [1, None]
     assert columns["city"] == ["Paris", None]
-    assert columns["summary"] == ["A “quoted” summary", None]
+    assert columns["suicide"] == [1, 0]
+    assert "summary" not in columns
     assert [france["dictionaries"]["group"][i] for i in columns["group"]] == ["Unknown", "Unknown"]
+
+
+def test_summaries_cover_incidents_with_or_without_coordinates(synthetic):
+    france = read_json(synthetic / "summaries" / "FRA.json")
+    assert france == {
+        "schemaVersion": 1,
+        "iso3": "FRA",
+        "summaries": {"199001010001": "A “quoted” summary", "199001020001": "Without coordinates"},
+    }
+    assert read_json(synthetic / "summaries" / "DEU.json")["summaries"] == {}
+
+
+def test_group_series_keep_unknown_as_an_entity(synthetic):
+    groups = read_json(synthetic / "agg" / "group_year.json")["entities"]
+    assert sorted(groups) == ["ETA", "FSLN", "Unknown"]
+    assert groups["Unknown"]["incidents"] == [1, None, 1, None, 0]
+    assert groups["ETA"]["killed"] == {"sum": [0, None, 5, None, 0], "known": [0, None, 1, None, 0]}
+
+
+def test_flow_cube_sums_to_every_incident(synthetic):
+    flow = read_json(synthetic / "flow.json")
+    assert flow["dictionaries"]["country"] == ["", "FRA", "NIC"]
+    assert flow["dictionaries"]["weaponType"] == ["Explosives", "Firearms"]
+    columns = flow["columns"]
+    assert flow["count"] == 5 and sum(columns["incidents"]) == 5
+    # The Yugoslavia row keeps its place in the cube with the country "".
+    yugoslavia = columns["country"].index(0)
+    assert (columns["year"][yugoslavia], columns["killedSum"][yugoslavia]) == (1992, 5)
+    assert sum(columns["killedKnown"]) == 4 and sum(columns["woundedKnown"]) == 4
 
 
 def test_top_events_rank_each_year_by_known_deaths(synthetic):
@@ -224,3 +256,13 @@ def test_two_runs_write_identical_files(real, tmp_path):
         }
 
     assert digests(again) == digests(real)
+
+
+@requires_csv
+def test_groups_and_flow_count_every_row(real, raw):
+    groups = read_json(real / "agg" / "group_year.json")["entities"]
+    assert sum(total(entity["incidents"]) for entity in groups.values()) == len(raw)
+    flow = read_json(real / "flow.json")["columns"]
+    assert sum(flow["incidents"]) == len(raw)
+    assert sum(flow["killedSum"]) == pytest.approx(raw["killed"].sum())
+    assert sum(flow["killedKnown"]) == raw["killed"].count()

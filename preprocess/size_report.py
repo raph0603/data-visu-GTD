@@ -1,6 +1,7 @@
 """Prints the raw and gzip size of the files written by preprocess.py, the
 initial load (meta + country_year + region_year + geometry) against the
-2 MB gzip budget, and the largest incidents/<iso3>.json files.
+2 MB gzip budget, the files loaded on demand, and the largest
+incidents/<iso3>.json files with their summaries/<iso3>.json.
 
 Run: python preprocess/size_report.py [--out public/data/gtd]
 """
@@ -9,7 +10,6 @@ from __future__ import annotations
 
 import argparse
 import gzip
-import json
 from pathlib import Path
 
 from country_geometry import TOPOLOGY
@@ -25,14 +25,6 @@ def sizes(data: bytes) -> tuple[int, int]:
 
 def kib(n: int) -> str:
     return f"{n / 1024:,.1f} Ko".replace(",", " ")
-
-
-def without_summaries(path: Path) -> bytes:
-    """The same incidents file with the summary column left out."""
-    value = json.loads(path.read_text(encoding="utf-8"))
-    value["columns"].pop("summary")
-    text = json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
-    return (text + "\n").encode("utf-8")
 
 
 def main() -> None:
@@ -55,19 +47,23 @@ def main() -> None:
     print(f"{'initial load':<32}{'':>14}{kib(initial_gzip):>14}"
           f"  ({initial_gzip / BUDGET_GZIP:.1%} of the 2 MB budget)")
 
-    raw, packed = sizes((out / "top_events.json").read_bytes())
-    print(f"{'top_events.json (on demand)':<32}{kib(raw):>14}{kib(packed):>14}")
+    for name in ("agg/group_year.json", "top_events.json", "flow.json"):
+        raw, packed = sizes((out / name).read_bytes())
+        print(f"{name + ' (on demand)':<32}{kib(raw):>14}{kib(packed):>14}")
 
-    incidents = sorted((out / "incidents").glob("*.json"))
-    measured = [(path, *sizes(path.read_bytes())) for path in incidents]
-    total_raw = sum(raw for _, raw, _ in measured)
-    total_gzip = sum(packed for _, _, packed in measured)
-    print(f"{f'incidents/ ({len(incidents)} files)':<32}{kib(total_raw):>14}{kib(total_gzip):>14}")
+    measured = {}
+    for folder in ("incidents", "summaries"):
+        files = sorted((out / folder).glob("*.json"))
+        measured[folder] = {path.name: sizes(path.read_bytes()) for path in files}
+        total_raw = sum(raw for raw, _ in measured[folder].values())
+        total_gzip = sum(packed for _, packed in measured[folder].values())
+        print(f"{f'{folder}/ ({len(files)} files)':<32}{kib(total_raw):>14}{kib(total_gzip):>14}")
 
-    print(f"\nLargest incidents files (gzip without the summary column in brackets):")
-    for path, raw, packed in sorted(measured, key=lambda item: -item[2])[:LARGEST]:
-        _, packed_lean = sizes(without_summaries(path))
-        print(f"  {path.name:<10}{kib(raw):>14}{kib(packed):>14}   ({kib(packed_lean)})")
+    print("\nLargest incidents files (gzip), with the summaries file loaded on click:")
+    largest = sorted(measured["incidents"].items(), key=lambda item: -item[1][1])[:LARGEST]
+    for name, (raw, packed) in largest:
+        _, summaries_gzip = measured["summaries"][name]
+        print(f"  {name:<10}{kib(raw):>14}{kib(packed):>14}   summaries {kib(summaries_gzip)}")
 
 
 if __name__ == "__main__":

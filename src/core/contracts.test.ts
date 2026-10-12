@@ -4,12 +4,17 @@ import {
   fetchMeta,
   parseCountryIncidentsFile,
   parseCountryYearFile,
+  parseFlowFile,
+  parseGroupYearFile,
   parseMeta,
   parseRegionYearFile,
+  parseSummariesFile,
   parseTopEventsFile,
   type CountryIncidentsFile,
   type CountryYearFile,
+  type FlowFile,
   type Meta,
+  type SummariesFile,
   type TopEventsFile,
 } from "./contracts";
 
@@ -74,7 +79,38 @@ const incidents: CountryIncidentsFile = {
     group: [0, 0],
     killed: [4, null],
     wounded: [1.5, 0],
-    summary: [null, "A “quoted” summary"],
+    suicide: [0, 1],
+  },
+};
+
+const summaries: SummariesFile = {
+  schemaVersion: 1,
+  iso3: "FRA",
+  summaries: { "199201010001": "A “quoted” summary" },
+};
+
+// Two combinations in 1990 (one without a representable country, one in France), one in 1992.
+const flow: FlowFile = {
+  schemaVersion: 1,
+  years: { first: 1990, last: 1992 },
+  count: 3,
+  dictionaries: {
+    country: ["", "FRA"],
+    attackType: ["Armed Assault", "Bombing/Explosion"],
+    targetType: ["Business", "Police"],
+    weaponType: ["Explosives", "Firearms"],
+  },
+  columns: {
+    year: [1990, 1990, 1992],
+    country: [0, 1, 1],
+    attackType: [0, 1, 1],
+    targetType: [1, 0, 0],
+    weaponType: [1, 0, 0],
+    incidents: [1, 2, 1],
+    killedSum: [5, 4, 0],
+    killedKnown: [1, 2, 1],
+    woundedSum: [0, 1.5, 0],
+    woundedKnown: [1, 1, 1],
   },
 };
 
@@ -176,6 +212,20 @@ describe("parseRegionYearFile", () => {
   });
 });
 
+describe("parseGroupYearFile", () => {
+  it("accepts any group name as key, including Unknown", () => {
+    const value = {
+      schemaVersion: 1,
+      years: { first: 1990, last: 1992 },
+      entities: {
+        Unknown: clone(countryYear.notRepresentable),
+        "Al-Qaida (AQ)": clone(countryYear.notRepresentable),
+      },
+    };
+    expect(parseGroupYearFile(clone(value), meta)).toEqual(value);
+  });
+});
+
 describe("parseCountryIncidentsFile", () => {
   it("accepts a valid file", () => {
     expect(parseCountryIncidentsFile(clone(incidents), meta)).toEqual(incidents);
@@ -199,10 +249,64 @@ describe("parseCountryIncidentsFile", () => {
     expect(() => parseCountryIncidentsFile(value, meta)).toThrow(/columns\.latitude/);
   });
 
+  it("rejects a suicide flag other than 0 or 1", () => {
+    const value = clone(incidents);
+    value.columns.suicide = [0, 2];
+    expect(() => parseCountryIncidentsFile(value, meta)).toThrow(/columns\.suicide/);
+  });
+
   it("rejects an incident in a year without data", () => {
     const value = clone(incidents);
     value.columns.year = [1990, 1991];
     expect(() => parseCountryIncidentsFile(value, meta)).toThrow(/columns\.year/);
+  });
+});
+
+describe("parseSummariesFile", () => {
+  it("accepts a valid file", () => {
+    expect(parseSummariesFile(clone(summaries))).toEqual(summaries);
+  });
+
+  it("rejects a summary that is not a string", () => {
+    const value = clone(summaries) as { summaries: Record<string, unknown> };
+    value.summaries["1"] = null;
+    expect(() => parseSummariesFile(value)).toThrow(/summaries\.1/);
+  });
+});
+
+describe("parseFlowFile", () => {
+  it("accepts a valid file", () => {
+    expect(parseFlowFile(clone(flow), meta)).toEqual(flow);
+  });
+
+  it("rejects a row in a year without data", () => {
+    const value = clone(flow);
+    value.columns.year = [1990, 1991, 1992];
+    expect(() => parseFlowFile(value, meta)).toThrow(/columns\.year\[1\]: 1991 has no data/);
+  });
+
+  it("rejects a dictionary index out of range", () => {
+    const value = clone(flow);
+    value.columns.weaponType = [1, 0, 2];
+    expect(() => parseFlowFile(value, meta)).toThrow(/columns\.weaponType\[2\]/);
+  });
+
+  it("rejects more known values than incidents in a row", () => {
+    const value = clone(flow);
+    value.columns.killedKnown = [1, 3, 1];
+    expect(() => parseFlowFile(value, meta)).toThrow(/columns\.killedKnown\[1\]/);
+  });
+
+  it("rejects a country that is neither ISO alpha-3 nor empty", () => {
+    const value = clone(flow);
+    value.dictionaries.country = ["", "France"];
+    expect(() => parseFlowFile(value, meta)).toThrow(/dictionaries\.country\.1/);
+  });
+
+  it("rejects an empty combination", () => {
+    const value = clone(flow);
+    value.columns.incidents = [1, 0, 1];
+    expect(() => parseFlowFile(value, meta)).toThrow(/columns\.incidents\[1\]/);
   });
 });
 

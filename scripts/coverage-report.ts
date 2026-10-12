@@ -1,6 +1,12 @@
+import { createServer } from 'vite';
 import { checkCoverage, type CoverageIssue } from '../src/core/coverage';
-import { MODULES } from '../src/modules';
 import { TASKS, USERS, USER_IDS, VIEW_IDS, USER_TASKS, VIEW_TASKS, type ViewId } from '../src/core/tasks';
+
+// The modules import what only Vite resolves (CSS, `?url` assets): load the registry through Vite's
+// SSR loader instead of a plain Node import.
+const server = await createServer({ configFile: false, appType: 'custom', logLevel: 'silent', server: { middlewareMode: true, hmr: false, ws: false } });
+const { MODULES } = (await server.ssrLoadModule('/src/modules/index.ts')) as typeof import('../src/modules');
+await server.close();
 
 /**
  * Prints the two matrices of the team spreadsheet as they are encoded in code, plus the implementation

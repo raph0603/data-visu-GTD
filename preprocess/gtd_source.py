@@ -18,6 +18,19 @@ RAW_CSV = REPO_ROOT / "data" / "raw" / "globalterrorismdb_0718dist.csv"
 DATASET_ID = "gtd"
 DATASET_TITLE = "Global Terrorism Database"
 
+# Copied from the terms of use on kaggle.com/datasets/START-UMD/gtd (EULA, section 4.a).
+DATASET_CITATION = (
+    "National Consortium for the Study of Terrorism and Responses to Terrorism (START), "
+    "University of Maryland. (2018). The Global Terrorism Database (GTD) [Data file]. "
+    "Retrieved from https://www.start.umd.edu/gtd"
+)
+# Summary of the EULA (sections 2, 3.a and 4.b): non-commercial research only; publishing an
+# analysis or a visualization is allowed, publicly posting the data is not.
+DATASET_LICENSE = (
+    "GTD End User License Agreement (University of Maryland): non-commercial research and analysis only. "
+    "Copyright University of Maryland 2018."
+)
+
 # Value of the group field when the perpetrator is not identified.
 UNKNOWN_GROUP = "Unknown"
 
@@ -42,6 +55,9 @@ COLUMNS: dict[str, str] = {
     "group": "gname",
     "attack_type": "attacktype1_txt",
     "target_type": "targtype1_txt",
+    "weapon_type": "weaptype1_txt",
+    # 1 when the attack is a suicide attack, else 0 (never missing in the 2017 export).
+    "suicide": "suicide",
     "summary": "summary",
 }
 

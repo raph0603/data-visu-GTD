@@ -52,10 +52,12 @@ src/core/            figé le 7 oct. ; modification par revue à 2 personnes
   tasks.ts           utilisateurs U1–U4, tâches T1–T12, matrices (source de vérité = tableur d'équipe)
   coverage.ts        contrôle de cohérence utilisateurs ↔ tâches ↔ vues ↔ modules
   contracts.ts       un type, un validateur et un chargeur par fichier JSON (meta, agg/country_year,
-                     agg/region_year, top_events, incidents/<iso3>) ; écrit par preprocess/preprocess.py
-  meta.ts            DatasetMeta = meta.json validé + vocabulaire des vues (métriques, dimensions)
+                     agg/region_year, agg/group_year, top_events, flow, incidents/<iso3>, summaries/<iso3>) ;
+                     écrits par preprocess/preprocess.py
+  meta.ts            DatasetMeta = meta.json validé + vocabulaire des vues (métriques dont « morts par
+                     incident », dimensions) ; metricValue() pour lire n'importe quelle métrique
   data.ts            DataApi : chargement paresseux, validé, mémoïsé (au-dessus des chargeurs de contracts.ts)
-  series.ts          YearlyIndex : sommes préfixées, fenêtre en O(1), sémantique zéro / pas de donnée
+  series.ts          YearlyIndex : sommes préfixées, fenêtre et moyenne en O(1), sémantique zéro / pas de donnée
   geo.ts, iso3166.ts fond de carte world-atlas 50m indexé par code ISO alpha-3
   state.ts           AppState (le seul état partagé), valeurs par défaut, sanitizeState
   store.ts           store observable typé (immuable, gelé, partage structurel, anti-cycle)
@@ -127,6 +129,17 @@ Les décisions sur les données (fond de carte, correspondance des pays, encodag
 
 ## État
 
-- **Fait** : shell et état partagé ; preprocess des fichiers de la carte (`meta`, `agg/country_year`, `agg/region_year`, `top_events`, `incidents/<iso3>`) avec tests pytest et validation TypeScript des fichiers réels.
-- **Les quatre vues** sont encore des squelettes qui affichent l'état partagé.
-- **Reste à produire** pour les autres vues : séries par groupe (leaderboard), cube catégoriel du diagramme de flux, colonne `suicide` (T8) ; décisions ouvertes de D11 (résumés, Porto Rico et îles Vierges).
+- **Données** : tous les fichiers des quatre vues sont produits et validés (pytest sur le vrai CSV, `contracts.data.test.ts` sur les fichiers générés) :
+
+  | Fichier | Pour | Chargé |
+  |---|---|---|
+  | `meta.json`, `agg/country_year.json`, `agg/region_year.json` | toutes les vues | au démarrage |
+  | `agg/group_year.json` (D13) | leaderboard, T7 | à la demande |
+  | `top_events.json` | atlas, journalistes | à la demande |
+  | `flow.json` (D14) | diagramme de flux, T6 | à la demande |
+  | `incidents/<iso3>.json` (avec `suicide`, D15) | atlas, T5 T8 | au zoom sur un pays |
+  | `summaries/<iso3>.json` (D12) | fiche incident, T10 | au clic |
+
+- **Carte par pays** : livrée pour T1, T3, T4, T9, T12 (choroplèthe en échelle log., tooltip avec rang, fenêtre réglable, période de comparaison, fiche pays avec évolution et courbe annuelle, top 10 avec variations de rang).
+- **Atlas, leaderboard, flux** : squelettes.
+- **Décisions ouvertes** : Porto Rico et îles Vierges (D11.3) ; publication en ligne des fichiers de données (D17).
