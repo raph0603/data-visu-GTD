@@ -130,25 +130,25 @@ describe("parseCountryYearFile", () => {
 
   it("rejects a series whose length differs from the covered years", () => {
     const value = clone(countryYear);
-    value.entities.FRA.incidents = [3, null];
+    value.entities.FRA!.incidents = [3, null];
     expect(() => parseCountryYearFile(value, meta)).toThrow(/entities\.FRA\.incidents/);
   });
 
   it("rejects a 0 on a year without data", () => {
     const value = clone(countryYear);
-    value.entities.FRA.incidents = [3, 0, 2];
+    value.entities.FRA!.incidents = [3, 0, 2];
     expect(() => parseCountryYearFile(value, meta)).toThrow(/1991 must be null/);
   });
 
   it("rejects a null on a year with data", () => {
     const value = clone(countryYear);
-    value.entities.FRA.killed.sum = [null, null, 0];
+    value.entities.FRA!.killed.sum = [null, null, 0];
     expect(() => parseCountryYearFile(value, meta)).toThrow(/1990 must not be null/);
   });
 
   it("rejects more known casualty values than incidents", () => {
     const value = clone(countryYear);
-    value.entities.FRA.killed.known = series(4, 1);
+    value.entities.FRA!.killed.known = series(4, 1);
     expect(() => parseCountryYearFile(value, meta)).toThrow(/killed\.known/);
   });
 
@@ -213,7 +213,7 @@ describe("parseTopEventsFile", () => {
 
   it("rejects more events than perYear for one country and year", () => {
     const value = clone(topEvents);
-    const event = value.countries.FRA[0];
+    const event = value.countries.FRA![0]!;
     value.countries.FRA = [event, { ...event, eventId: "2" }, { ...event, eventId: "3" }];
     expect(() => parseTopEventsFile(value, meta)).toThrow(/perYear/);
   });

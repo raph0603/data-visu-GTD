@@ -87,12 +87,13 @@ export function buildCountryAtlas(topology: unknown): CountryAtlas {
   // Ashmore-et-Cartier), pour ne pas dépendre de l'ordre du fichier.
   const countries: CountryFeature[] = [...groups.entries()].map(([iso3, members]) => {
     const parts = members.map((member) => toFeature(typed, member));
+    const [single] = parts;
     const largest = parts.reduce((best, part) => (geoArea(part) > geoArea(best) ? part : best));
     return {
       type: "Feature",
       id: iso3,
       properties: { iso3, name: largest.properties.name },
-      geometry: parts.length === 1 ? parts[0].geometry : merge(typed, members),
+      geometry: parts.length === 1 && single !== undefined ? single.geometry : merge(typed, members),
     };
   });
 
