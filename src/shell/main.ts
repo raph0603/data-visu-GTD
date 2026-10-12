@@ -41,6 +41,19 @@ async function boot(root: HTMLElement): Promise<void> {
   }
   const host = document.createElement('main');
   root.append(header, host);
+  // The GTD terms of use (section 4.a) require this citation wherever its data is shown.
+  if (meta.dataset.citation !== null) {
+    const footer = document.createElement('footer');
+    const source = document.createElement('p');
+    source.textContent = `Source : ${meta.dataset.citation}`;
+    footer.append(source);
+    if (meta.dataset.license !== null) {
+      const license = document.createElement('p');
+      license.textContent = meta.dataset.license;
+      footer.append(license);
+    }
+    root.append(footer);
+  }
 
   const buttons = new Map<ViewId, HTMLButtonElement>();
   for (const id of VIEW_IDS) {

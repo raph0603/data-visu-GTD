@@ -504,3 +504,89 @@ même façon.
      sans incident. Seuls ces deux-là contiennent des incidents.
    - Option : ajouter au contrat un champ « compté avec USA » pour les dessiner
      comme non représentables, avec une explication dans le tooltip.
+
+## D12. Résumés dans `summaries/<iso3>.json`
+
+**Statut** : adoptée le 2026-10-12 ; tranche la décision ouverte 1 de D11.
+Modifie `contracts.ts` (colonne `summary` retirée de `incidents/<iso3>.json`).
+
+**Décision** : les résumés quittent les fichiers d'incidents. Chaque pays
+dessinable a un fichier `summaries/<iso3>.json` qui associe un identifiant
+d'incident à son résumé, pour tous ses incidents qui en ont un, avec ou sans
+coordonnées. Les vues le chargent seulement à l'ouverture d'une fiche (T10),
+par `ctx.data.summaries(iso3)`.
+
+**Argument** : mesuré avec `size_report.py`, le fichier de points de l'Irak
+passe de 1 111,7 Ko à 238,0 Ko gzip ; ses résumés (975,0 Ko gzip) ne sont
+téléchargés qu'au premier clic sur un incident irakien.
+
+**Alternative rejetée** : un fichier de résumés par pays et par année. Il
+donnerait des téléchargements plus petits au clic, mais 11 280 fichiers.
+
+## D13. Séries par groupe `agg/group_year.json`
+
+**Statut** : adoptée le 2026-10-12.
+
+**Décision** : les 3 537 groupes sont tous écrits, sans seuil, au même format
+que `region_year.json`, et la clé est le nom GTD. « Unknown » (45,6 % des
+incidents) reste une entité : c'est au leaderboard de l'exclure par défaut et
+de le signaler.
+
+**Argument** : 147,9 Ko gzip, chargés à la demande. Un seuil (par exemple
+10 incidents, 592 groupes, 96,5 % des incidents) aurait fait disparaître des
+groupes d'une fenêtre où ils comptent, et le total n'aurait plus égalé celui
+des pays.
+
+**Vérification** : la somme des groupes égale le nombre de lignes du CSV
+(`test_groups_and_flow_count_every_row`, `contracts.data.test.ts`).
+
+## D14. Cube du diagramme de flux `flow.json`
+
+**Statut** : adoptée le 2026-10-12.
+
+**Décision** : un cube creux année × pays × type d'attaque × type de cible ×
+type d'arme (`weaptype1_txt`, ajoutée à `gtd_source.COLUMNS`), stocké en
+colonnes avec dictionnaires : 40 183 combinaisons, avec pour chacune le nombre
+d'incidents et, pour les morts et les blessés, la somme connue et le nombre de
+valeurs connues. Les incidents sans pays représentable ont le code pays `""`.
+
+**Argument** : avec le pays, le diagramme suit le pays sélectionné sur la carte
+(`state.focus`) sans charger de fichier d'incidents ; 156,1 Ko gzip. Par
+région seulement (22 748 combinaisons), on perdait ce lien.
+
+## D15. Colonne `suicide` dans `incidents/<iso3>.json`
+
+**Statut** : adoptée le 2026-10-12.
+
+**Décision** : 1 pour un attentat-suicide, 0 sinon (la colonne n'a aucune
+valeur manquante dans le CSV de 2018). Elle permet T8 (« les attentats-suicides
+sont-ils plus meurtriers ? ») dans l'atlas.
+
+## D16. Métrique « morts par incident »
+
+**Statut** : adoptée le 2026-10-12. Ajoute `YearlyIndex.mean` (`series.ts`)
+et la métrique `lethality` (`meta.ts`).
+
+**Décision** : sur une fenêtre, morts connus ÷ nombre d'incidents dont le
+nombre de morts est connu, jamais une moyenne de moyennes annuelles. NaN si
+aucune valeur n'est connue. La carte colore tous les pays, mais son classement
+ne retient que les pays d'au moins 10 incidents sur la fenêtre
+(`MIN_INCIDENTS_FOR_MEAN`) : une seule attaque de 50 morts ferait sinon d'un
+pays le premier.
+
+**Vérification** : `npm test` (`YearlyIndex.mean`, 3 cas dont « pas une
+moyenne de moyennes »).
+
+## D17. Citation et licence
+
+**Statut** : adoptée le 2026-10-12.
+
+**Décision** : `meta.json` porte la citation imposée par les conditions
+d'utilisation de la GTD (section 4.a de l'EULA, copiée de la page Kaggle) et un
+résumé de la licence ; le shell les affiche en pied de page.
+
+**Point d'attention** : l'EULA (section 3.a) interdit de publier les données
+elles-mêmes sans accord écrit, mais autorise la publication d'une analyse ou
+d'une visualisation non commerciale. Mettre l'application en ligne avec
+`public/data/gtd/` revient à publier les fichiers d'incidents et leurs
+résumés : à valider avant tout déploiement public.

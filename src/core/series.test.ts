@@ -100,6 +100,24 @@ describe("YearlyIndex.knownShare", () => {
   });
 });
 
+describe("YearlyIndex.mean", () => {
+  it("divides the known sum by the number of known values, not by the incidents", () => {
+    // killed: (5 + 0 + 0 + 2 + 0) / (2 + 0 + 0 + 1 + 0) known values.
+    expect(index.mean("AAA", "killed", 1990, 1995)).toBeCloseTo(7 / 3, 12);
+  });
+
+  it("is not a mean of yearly means", () => {
+    // Yearly means 2.5 (1990) and 2 (1994) would average to 2.25.
+    expect(index.mean("AAA", "killed", 1990, 1994)).toBeCloseTo(7 / 3, 12);
+  });
+
+  it("returns NaN when no value is known or the window has no data", () => {
+    expect(index.mean("AAA", "killed", 1992, 1992)).toBeNaN(); // 1 incident, deaths unknown
+    expect(index.mean("AAA", "killed", 1991, 1991)).toBeNaN(); // no incident: no mean
+    expect(index.mean("AAA", "killed", 1993, 1993)).toBeNaN(); // year without data
+  });
+});
+
 describe("YearlyIndex metadata", () => {
   it("exposes the covered years, the gaps and the keys", () => {
     expect([index.first, index.last]).toEqual([1990, 1995]);

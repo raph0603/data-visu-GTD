@@ -16,12 +16,15 @@ describe('createDataApi', () => {
     expect(fetchJson).toHaveBeenCalledTimes(1);
     expect(fetchJson).toHaveBeenCalledWith('data/gtd/agg/region_year.json');
 
-    await Promise.allSettled([api.countryYear(), api.topEvents(), api.incidents('NGA')]);
+    await Promise.allSettled([api.countryYear(), api.groupYear(), api.topEvents(), api.flow(), api.incidents('NGA'), api.summaries('NGA')]);
     expect(fetchJson.mock.calls.map((c) => c[0])).toEqual([
       'data/gtd/agg/region_year.json',
       'data/gtd/agg/country_year.json',
+      'data/gtd/agg/group_year.json',
       'data/gtd/top_events.json',
+      'data/gtd/flow.json',
       'data/gtd/incidents/NGA.json',
+      'data/gtd/summaries/NGA.json',
     ]);
   });
 
@@ -49,7 +52,7 @@ describe('loadDataset', () => {
   it('validates meta.json and adds the interface vocabulary', async () => {
     const meta = await loadDataset('fixture', () => Promise.resolve(structuredClone(fixtureMetaJson)));
     expect(meta.years.gaps).toEqual([2003]);
-    expect(meta.metrics.map((m) => m.id)).toEqual([...METRICS]);
+    expect(meta.metrics.map((m) => m.id)).toEqual([...METRICS, 'lethality']);
     expect(meta.metrics.filter((m) => m.kind === 'count')).toHaveLength(1);
     expect(new Set(meta.dimensions.map((d) => d.id)).size).toBe(meta.dimensions.length);
   });

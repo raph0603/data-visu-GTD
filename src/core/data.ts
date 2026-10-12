@@ -2,14 +2,20 @@ import { json } from 'd3';
 import {
   fetchCountryIncidents,
   fetchCountryYear,
+  fetchFlow,
+  fetchGroupYear,
   fetchMeta,
   fetchRegionYear,
+  fetchSummaries,
   fetchTopEvents,
   type CountryIncidentsFile,
   type CountryYearFile,
   type FetchJson,
+  type FlowFile,
+  type GroupYearFile,
   type Meta,
   type RegionYearFile,
+  type SummariesFile,
   type TopEventsFile,
 } from './contracts';
 import { describeDataset, type DatasetMeta } from './meta';
@@ -18,8 +24,12 @@ import { describeDataset, type DatasetMeta } from './meta';
 export interface DataApi {
   countryYear(): Promise<CountryYearFile>;
   regionYear(): Promise<RegionYearFile>;
+  groupYear(): Promise<GroupYearFile>;
   topEvents(): Promise<TopEventsFile>;
+  flow(): Promise<FlowFile>;
   incidents(iso3: string): Promise<CountryIncidentsFile>;
+  /** Loaded when an incident sheet opens (T10), not with the points. */
+  summaries(iso3: string): Promise<SummariesFile>;
 }
 
 export async function loadDataset(datasetId: string, fetchJson: FetchJson = json): Promise<DatasetMeta> {
@@ -45,7 +55,10 @@ export function createDataApi(datasetId: string, meta: Meta, fetchJson: FetchJso
   return {
     countryYear: () => memo('agg/country_year', () => fetchCountryYear(datasetId, meta, fetchJson)),
     regionYear: () => memo('agg/region_year', () => fetchRegionYear(datasetId, meta, fetchJson)),
+    groupYear: () => memo('agg/group_year', () => fetchGroupYear(datasetId, meta, fetchJson)),
     topEvents: () => memo('top_events', () => fetchTopEvents(datasetId, meta, fetchJson)),
+    flow: () => memo('flow', () => fetchFlow(datasetId, meta, fetchJson)),
     incidents: (iso3) => memo(`incidents/${iso3}`, () => fetchCountryIncidents(datasetId, iso3, meta, fetchJson)),
+    summaries: (iso3) => memo(`summaries/${iso3}`, () => fetchSummaries(datasetId, iso3, fetchJson)),
   };
 }

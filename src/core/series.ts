@@ -78,6 +78,20 @@ export class YearlyIndex {
     return known === 0 ? Number.NaN : between(series.sum, a, b);
   }
 
+  /**
+   * Mean of a casualty metric over the window's incidents whose value is known:
+   * sum of the known values / number of known values, never a mean of yearly
+   * means. NaN without data or when no value is known.
+   */
+  mean(key: string, metric: CasualtyMetric, from: number, to: number): number {
+    const span = this.span(key, from, to);
+    if (span === undefined) return Number.NaN;
+    const { prefix, a, b } = span;
+    const series = prefix[metric];
+    const known = between(series.known, a, b);
+    return known === 0 ? Number.NaN : between(series.sum, a, b) / known;
+  }
+
   /** Share of the window's incidents whose value of metric is known; NaN without incident. */
   knownShare(key: string, metric: MetricId, from: number, to: number): number {
     const span = this.span(key, from, to);
