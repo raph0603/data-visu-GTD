@@ -1,6 +1,7 @@
 import type { IncidentSummary, TopEventsFile } from '../../core/contracts';
 import { categoryLabel } from '../../core/labels';
 import type { MetricDef } from '../../core/meta';
+import type { EntityRef } from '../../core/state';
 import { describeChange, formatCount, formatRange, formatRate, formatShare, formatValue, formatWithUnit, ordinal, plural } from './format';
 import { weightOf, weightUnit, type CountryFigures, type Env, type Frame } from './frame';
 import { incidentCategory, incidentDate, type IncidentFiles } from './incidents';
@@ -10,6 +11,11 @@ import { clearCountries, MAX_SELECTION, toggleCountry } from './selection';
 import type { Sel } from './ui';
 
 const INCIDENTS_SHOWN = 5;
+
+export interface PanelActions {
+  /** An incident row is hovered or focused: ring it on the globe (null when left). */
+  readonly previewIncident: (eventId: string | null) => void;
+}
 
 export interface Panel {
   update(frame: Frame): void;
@@ -36,7 +42,7 @@ interface Deadly {
  * their figures side by side against the comparison period, their yearly curves as small multiples,
  * their organizations and their deadliest incidents. Incident: the sheet, with the GTD summary.
  */
-export function createPanel<E extends Element>(parent: Sel<E>, env: Env, files: IncidentFiles): Panel {
+export function createPanel<E extends Element>(parent: Sel<E>, env: Env, files: IncidentFiles, actions: PanelActions): Panel {
   const { store, dataset, model, data } = env;
   const root = parent.append('aside').attr('class', 'cv-panel').attr('aria-label', 'Détails');
   const crumbs = root.append('nav').attr('class', 'cv-crumbs').attr('aria-label', 'Niveau de lecture').append('ol');
@@ -68,6 +74,7 @@ export function createPanel<E extends Element>(parent: Sel<E>, env: Env, files: 
   let summaryFor = '';
   let topEvents: TopEventsFile | null = null;
   let topEventsState: 'idle' | 'loading' | 'failed' = 'idle';
+  let levelKey = '';
 
   /** Rebuilds a section, keeping the keyboard focus on the element with the same data-key. */
   function rebuild(section: Sel<HTMLElement>, build: (section: Sel<HTMLElement>) => void): void {
@@ -78,6 +85,33 @@ export function createPanel<E extends Element>(parent: Sel<E>, env: Env, files: 
     build(section);
     if (key !== undefined) (node?.querySelector(`[data-key="${key}"]`) as HTMLElement | null)?.focus();
   }
+
+  /**
+   * Linking (D22): pointing at a country or an organization in the panel, with the mouse or the
+   * keyboard, sets the shared hover, which the globe outlines.
+   */
+  const point = <P extends Element>(sel: Sel<P>, ref: EntityRef): void => {
+    sel
+      .on('mouseenter focusin', () => store.set({ hover: ref }))
+      .on('mouseleave focusout', () => {
+        const hover = store.get().hover;
+        if (hover?.dim === ref.dim && hover.id === ref.id) store.set({ hover: null });
+      });
+  };
+
+  /** A click on a yearly curve keeps that year alone. */
+  const pickYear = (svg: Sel<SVGSVGElement>, toYear: (x: number, width: number) => number): void => {
+    svg
+      .classed('is-pickable', true)
+      .on('click', (event: MouseEvent) => {
+        const box = svg.node()?.getBoundingClientRect();
+        if (box === undefined || box.width === 0) return;
+        const year = Math.min(model.last, Math.max(model.first, toYear(event.clientX - box.left, box.width)));
+        store.set({ range: { from: year, to: year } });
+      })
+      .append('title')
+      .text('Cliquer une année pour ne garder qu’elle');
+  };
 
   const swatch = <P extends Element>(parent: Sel<P>, f: Frame, iso3: string) => parent.append('span').attr('class', 'cv-swatch').style('background', f.colors.get(iso3) ?? '');
 
@@ -128,6 +162,7 @@ export function createPanel<E extends Element>(parent: Sel<E>, env: Env, files: 
       const chips = h.append('ul').attr('class', 'cv-selection').attr('aria-label', 'Pays sélectionnés');
       for (const iso3 of f.selected) {
         const li = chips.append('li');
+        point(li, { dim: 'country', id: iso3 });
         swatch(li, f, iso3);
         const text = li.append('span').attr('class', 'cv-selection-text');
         text.append('span').attr('class', 'cv-selection-name').text(env.name(iso3));
@@ -173,6 +208,7 @@ export function createPanel<E extends Element>(parent: Sel<E>, env: Env, files: 
         row.append('td');
         for (const column of columns) {
           const th = row.append('th').attr('scope', 'col');
+          if (column.iso3 !== null) point(th, { dim: 'country', id: column.iso3 });
           swatch(th, f, column.iso3 ?? '');
           th.append('span').text(env.name(column.iso3 ?? ''));
         }
@@ -307,6 +343,7 @@ export function createPanel<E extends Element>(parent: Sel<E>, env: Env, files: 
         }
       });
       const li = list.append('li');
+      point(li, { dim: 'country', id: iso3 });
       const label = li.append('div').attr('class', 'cv-trend-label');
       swatch(label, f, iso3);
       label.append('span').text(env.name(iso3));
@@ -318,6 +355,7 @@ export function createPanel<E extends Element>(parent: Sel<E>, env: Env, files: 
         .attr('preserveAspectRatio', 'none')
         .attr('role', 'img')
         .attr('aria-label', `${env.name(iso3)} : ${f.display.label.toLowerCase()} par an, maximum ${f.display.format(max)} en ${peak}`);
+      pickYear(svg, (x, width) => model.first + Math.floor((x / width) * model.span));
       svg
         .append('rect')
         .attr('class', 'cv-trend-window')
@@ -385,6 +423,7 @@ export function createPanel<E extends Element>(parent: Sel<E>, env: Env, files: 
         'aria-label',
         `Indice base 100 (moyenne de ${formatRange(f.state.range)}) : ${lines.map((l) => `${env.name(l.iso3)} jusqu’à ${Math.round(Math.max(...l.points.map((p) => p[1])))}`).join(', ')}`,
       );
+    pickYear(svg, (px, width) => model.first + Math.floor((((px / width) * W - pad.left) / (W - pad.left - pad.right)) * model.span));
     svg
       .append('rect')
       .attr('class', 'cv-index-window')
@@ -459,6 +498,7 @@ export function createPanel<E extends Element>(parent: Sel<E>, env: Env, files: 
         const peak = Math.max(1, ...rows.map((r) => Math.max(...(activity?.get(r.g) ?? [0]))));
         for (const row of rows) {
           const li = list.append('li');
+          point(li, { dim: 'group', id: row.name });
           const line = li.append('div').attr('class', 'cv-group-line');
           line
             .append('button')
@@ -577,6 +617,7 @@ export function createPanel<E extends Element>(parent: Sel<E>, env: Env, files: 
   }
 
   function renderDeadliest(f: Frame): void {
+    actions.previewIncident(null);
     deadliest.attr('hidden', f.level === 'incident' ? '' : null);
     if (f.level === 'incident') return;
     rebuild(deadliest, (section) => {
@@ -604,7 +645,9 @@ export function createPanel<E extends Element>(parent: Sel<E>, env: Env, files: 
           .append('button')
           .attr('type', 'button')
           .attr('data-key', `incident-${e.eventId}`)
-          .on('click', () => void files.ensure([e.iso3]).then(() => store.set({ incident: e.eventId })));
+          .on('click', () => void files.ensure([e.iso3]).then(() => store.set({ incident: e.eventId })))
+          .on('mouseenter focus', () => actions.previewIncident(e.eventId))
+          .on('mouseleave blur', () => actions.previewIncident(null));
         button
           .append('span')
           .attr('class', 'cv-incident-killed')
@@ -713,6 +756,15 @@ export function createPanel<E extends Element>(parent: Sel<E>, env: Env, files: 
     update(next) {
       frame = next;
       root.classed('is-compare', next.selected.length > 1);
+      // A new level slides in (200 ms, none with reduced motion): the panel visibly changes subject.
+      const key = `${next.level}|${next.selected.join(',')}|${next.state.incident ?? ''}`;
+      const node = scroll.node();
+      if (key !== levelKey && levelKey !== '' && node !== null) {
+        node.classList.remove('is-entering');
+        void node.offsetWidth;
+        node.classList.add('is-entering');
+      }
+      levelKey = key;
       renderCrumbs(next);
       renderHead(next);
       renderFigures(next);

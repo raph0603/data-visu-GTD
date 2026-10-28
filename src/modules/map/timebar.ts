@@ -3,12 +3,11 @@ import { categoryLabel } from '../../core/labels';
 import { rangeLength, type YearRange } from '../../core/state';
 import { formatCount, formatRange } from './format';
 import { previousWindow, type Env, type Frame } from './frame';
+import { icon, iconLabel } from './icons';
 import { readFilters, UNKNOWN_GROUP } from './model';
 import type { Sel } from './ui';
 
 const PLAY_STEP_MS = 650;
-const PLAY_ICON = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2.5v11l9-5.5z"/></svg>';
-const PAUSE_ICON = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 2.5h3v11h-3zM9.5 2.5h3v11h-3z"/></svg>';
 
 /**
  * Breaks in the way the GTD was collected (codebook): Pinkerton until 1997, then other teams, then
@@ -21,26 +20,36 @@ const COLLECTION_BREAKS: readonly { year: number; text: string }[] = [
 
 export interface TimeBar {
   update(frame: Frame): void;
+  /** Starts or stops the play (Space). */
+  togglePlay(): void;
   destroy(): void;
 }
 
+export interface TimeBarActions {
+  /** Opens the keyboard help. */
+  readonly onHelp: () => void;
+}
+
 /**
- * The bar under the globe. The period is chosen directly on the histogram of the yearly values:
- * drag across years to select them, drag the window to move it, click a year to keep it alone,
- * or pick a decade. Then the play, the metric, the organization filter and the comparison period.
+ * The bar under the globe (D22). Always visible: the play, the period chosen on the histogram of
+ * the yearly values (drag across years, drag the window to move it, click one year, or a decade),
+ * the metric. Folded behind « Filtres » (Hick's law: fewer visible choices, faster decisions):
+ * organization, suicide attacks, rates per million, comparison period. Then share and help.
  */
-export function createTimeBar(parent: Sel<HTMLElement>, env: Env): TimeBar {
+export function createTimeBar(parent: Sel<HTMLElement>, env: Env, actions: TimeBarActions): TimeBar {
   const { store, dataset, model } = env;
   const { first, last } = dataset.years;
   const span = last - first + 1;
   const bar = parent.append('div').attr('class', 'cv-timebar');
+  const doc = bar.node()?.ownerDocument ?? document;
+  const win = doc.defaultView;
 
   // ------------------------------------------------------------------ play + period
   const play = bar
     .append('button')
     .attr('type', 'button')
     .attr('class', 'cv-play')
-    .on('click', () => (timer === null ? startPlay() : stopPlay()));
+    .on('click', () => togglePlay());
 
   const time = bar.append('div').attr('class', 'cv-time');
   const timeHead = time.append('div').attr('class', 'cv-time-head');
@@ -93,21 +102,21 @@ export function createTimeBar(parent: Sel<HTMLElement>, env: Env): TimeBar {
     if (box === undefined || box.width === 0) return first;
     return Math.min(last, Math.max(first, first + Math.floor(((clientX - box.left) / box.width) * span)));
   };
+  const movable = (year: number) => year >= current.from && year <= current.to && rangeLength(current) < span && rangeLength(current) > 1;
   let drag: { kind: 'brush' | 'move'; anchor: number; offset: number; moved: boolean } | null = null;
   bars
     .on('pointerdown', (event: PointerEvent) => {
       if (event.button !== 0) return;
       stopPlay();
       const year = yearAt(event.clientX);
-      const inside = year >= current.from && year <= current.to && rangeLength(current) < span && rangeLength(current) > 1;
-      drag = inside ? { kind: 'move', anchor: year, offset: year - current.from, moved: false } : { kind: 'brush', anchor: year, offset: 0, moved: false };
+      drag = movable(year) ? { kind: 'move', anchor: year, offset: year - current.from, moved: false } : { kind: 'brush', anchor: year, offset: 0, moved: false };
       (bars.node() as HTMLElement | null)?.setPointerCapture?.(event.pointerId);
       event.preventDefault();
     })
     .on('pointermove', (event: PointerEvent) => {
       const year = yearAt(event.clientX);
       if (drag === null) {
-        bars.classed('is-over-window', year >= current.from && year <= current.to && rangeLength(current) < span && rangeLength(current) > 1);
+        bars.classed('is-over-window', movable(year));
         return;
       }
       if (year === drag.anchor && !drag.moved) return;
@@ -166,19 +175,47 @@ export function createTimeBar(parent: Sel<HTMLElement>, env: Env): TimeBar {
     .attr('role', 'radio')
     .text((m) => m.label)
     .on('click', (_event: MouseEvent, m) => store.set({ metric: m.id }));
-  // Rates per million inhabitants (D21): for counts and casualties, not for a mean per incident.
-  const perField = metricBox.append('label').attr('class', 'cv-check');
-  const perBox = perField
-    .append('input')
-    .attr('type', 'checkbox')
-    .on('change', (event: Event) => {
-      const on = (event.target as HTMLInputElement).checked;
-      store.set((s) => ({ ext: { ...s.ext, 'map.per': on ? 'capita' : 'raw' } }));
-    });
-  perField.append('span').text('par million d’habitants');
 
-  // ------------------------------------------------------------------ organization filter
-  const groupBox = bar.append('div').attr('class', 'cv-control cv-group-filter');
+  // ------------------------------------------------------------------ actions: filters, share, help
+  const tools = bar.append('div').attr('class', 'cv-bar-tools');
+  const filterButton = tools
+    .append('button')
+    .attr('type', 'button')
+    .attr('class', 'cv-tool-button')
+    .attr('aria-haspopup', 'dialog')
+    .attr('aria-expanded', 'false')
+    .attr('aria-controls', 'cv-filter-panel');
+  const shareButton = tools
+    .append('button')
+    .attr('type', 'button')
+    .attr('class', 'cv-tool-button')
+    .attr('title', 'Copier le lien de cette vue (période, pays, filtres)')
+    .html(iconLabel('share', 'Partager'))
+    .on('click', () => void share());
+  tools
+    .append('button')
+    .attr('type', 'button')
+    .attr('class', 'cv-tool-button cv-icon-only')
+    .attr('aria-label', 'Raccourcis clavier')
+    .attr('title', 'Raccourcis clavier (?)')
+    .html(icon('keyboard'))
+    .on('click', () => actions.onHelp());
+  const announce = tools.append('span').attr('class', 'cv-sr-only').attr('role', 'status');
+
+  // ------------------------------------------------------------------ the filter panel
+  const panel = bar.append('div').attr('class', 'cv-filter-panel').attr('id', 'cv-filter-panel').attr('role', 'dialog').attr('aria-label', 'Filtres et options').attr('hidden', '');
+  const panelHead = panel.append('div').attr('class', 'cv-filter-head');
+  panelHead.append('h3').text('Filtres et options');
+  panelHead
+    .append('button')
+    .attr('type', 'button')
+    .attr('class', 'cv-tool-button cv-icon-only')
+    .attr('aria-label', 'Fermer les filtres')
+    .html(icon('close'))
+    .on('click', () => setPanel(false));
+
+  // Organization.
+  const groupBox = panel.append('div').attr('class', 'cv-control cv-group-filter');
   groupBox.append('label').attr('class', 'cv-control-label').attr('for', 'cv-group-input').text('Organisation');
   const groupListId = 'cv-group-names';
   const groupList = groupBox.append('datalist').attr('id', groupListId);
@@ -193,8 +230,9 @@ export function createTimeBar(parent: Sel<HTMLElement>, env: Env): TimeBar {
       known.set(name.toLocaleLowerCase('fr'), name);
       groupList.append('option').attr('value', name).attr('label', `${formatCount(totals.incidents)} incidents`);
     });
-  const groupRow = groupBox.append('div').attr('class', 'cv-group-row');
-  groupRow
+  groupBox
+    .append('div')
+    .attr('class', 'cv-group-row')
     .append('input')
     .attr('id', 'cv-group-input')
     .attr('type', 'search')
@@ -211,8 +249,9 @@ export function createTimeBar(parent: Sel<HTMLElement>, env: Env): TimeBar {
   const groupChips = groupBox.append('div').attr('class', 'cv-chips');
 
   // Suicide attacks are deadlier on average (Pape 2005, Mroszczyk 2019): a filter to test it (T8).
-  groupBox.append('span').attr('class', 'cv-control-label').attr('id', 'cv-suicide-label').text('Attentats-suicides');
-  const suicideButtons = groupBox
+  const suicideBox = panel.append('div').attr('class', 'cv-control');
+  suicideBox.append('span').attr('class', 'cv-control-label').attr('id', 'cv-suicide-label').text('Attentats-suicides');
+  const suicideButtons = suicideBox
     .append('div')
     .attr('class', 'cv-segmented cv-segmented-small')
     .attr('role', 'radiogroup')
@@ -229,8 +268,21 @@ export function createTimeBar(parent: Sel<HTMLElement>, env: Env): TimeBar {
     .text((o) => o.label)
     .on('click', (_event: MouseEvent, o) => store.set((s) => ({ filters: { ...s.filters, suicide: o.value === null ? [] : [o.value] } })));
 
-  // ------------------------------------------------------------------ comparison
-  const compareBox = bar.append('div').attr('class', 'cv-control cv-compare-control');
+  // Rates per million inhabitants (D21): for counts and casualties, not for a mean per incident.
+  const perBox = panel.append('div').attr('class', 'cv-control');
+  perBox.append('span').attr('class', 'cv-control-label').text('Valeurs');
+  const perField = perBox.append('label').attr('class', 'cv-check');
+  const perInput = perField
+    .append('input')
+    .attr('type', 'checkbox')
+    .on('change', (event: Event) => {
+      const on = (event.target as HTMLInputElement).checked;
+      store.set((s) => ({ ext: { ...s.ext, 'map.per': on ? 'capita' : 'raw' } }));
+    });
+  perField.append('span').text('par million d’habitants');
+
+  // Comparison period.
+  const compareBox = panel.append('div').attr('class', 'cv-control');
   compareBox.append('label').attr('class', 'cv-control-label').attr('for', 'cv-compare-mode').text('Évolution comparée à');
   const compareRow = compareBox.append('div').attr('class', 'cv-compare-row');
   const mode = compareRow
@@ -267,8 +319,56 @@ export function createTimeBar(parent: Sel<HTMLElement>, env: Env): TimeBar {
   });
   const compareText = compareRow.append('span').attr('class', 'cv-compare-text');
 
-  // ------------------------------------------------------------------ filters set by another view
-  const filters = bar.append('div').attr('class', 'cv-active-filters');
+  // Filters set by another view, then the reset of every filter.
+  const others = panel.append('p').attr('class', 'cv-caption cv-other-filters');
+  const reset = panel
+    .append('button')
+    .attr('type', 'button')
+    .attr('class', 'cv-button')
+    .text('Retirer tous les filtres')
+    .on('click', () => store.set({ filters: {} }));
+
+  // ------------------------------------------------------------------ panel behaviour
+  let open = false;
+  function setPanel(next: boolean): void {
+    open = next;
+    panel.attr('hidden', next ? null : '');
+    filterButton.attr('aria-expanded', String(next)).classed('is-open', next);
+    if (next) (panel.select('input').node() as HTMLInputElement | null)?.focus();
+    else (filterButton.node() as HTMLButtonElement | null)?.focus();
+  }
+  filterButton.on('click', () => setPanel(!open));
+  panel.on('keydown', (event: KeyboardEvent) => {
+    if (event.key !== 'Escape') return;
+    event.stopPropagation(); // Échap closes the panel, not the selection
+    setPanel(false);
+  });
+  const onOutside = (event: PointerEvent) => {
+    const target = event.target as Node;
+    if (open && !panel.node()?.contains(target) && !filterButton.node()?.contains(target)) setPanel(false);
+  };
+  doc.addEventListener('pointerdown', onOutside);
+
+  // ------------------------------------------------------------------ share
+  let shareTimer: number | null = null;
+  async function share(): Promise<void> {
+    const url = win?.location.href ?? '';
+    let copied = false;
+    try {
+      await win?.navigator.clipboard.writeText(url);
+      copied = true;
+    } catch {
+      copied = false;
+    }
+    shareButton.html(copied ? iconLabel('check', 'Lien copié') : iconLabel('share', 'Copiez l’adresse de la page')).classed('is-done', copied);
+    announce.text(copied ? 'Lien de la vue copié dans le presse-papiers' : 'Copie impossible : copiez l’adresse de la page');
+    if (shareTimer !== null) win?.clearTimeout(shareTimer);
+    shareTimer =
+      win?.setTimeout(() => {
+        shareTimer = null;
+        shareButton.html(iconLabel('share', 'Partager')).classed('is-done', false);
+      }, 2200) ?? null;
+  }
 
   // ------------------------------------------------------------------ play
   let timer: Timer | null = null;
@@ -276,9 +376,9 @@ export function createTimeBar(parent: Sel<HTMLElement>, env: Env): TimeBar {
   function setPlayButton(playing: boolean): void {
     play
       .classed('is-playing', playing)
-      .attr('aria-label', playing ? 'Arrêter la lecture' : 'Lire année par année')
-      .attr('title', playing ? 'Arrêter la lecture' : 'Lire année par année')
-      .html(playing ? PAUSE_ICON : PLAY_ICON);
+      .attr('aria-label', playing ? 'Arrêter la lecture (Espace)' : 'Lire année par année (Espace)')
+      .html(playing ? iconLabel('pause', 'Pause') : iconLabel('play', 'Lire'));
+    bar.classed('is-playing', playing);
   }
   setPlayButton(false);
 
@@ -305,7 +405,13 @@ export function createTimeBar(parent: Sel<HTMLElement>, env: Env): TimeBar {
     setPlayButton(false);
   }
 
+  function togglePlay(): void {
+    if (timer === null) startPlay();
+    else stopPlay();
+  }
+
   return {
+    togglePlay,
     update(f) {
       const { state } = f;
       current = state.range;
@@ -334,15 +440,18 @@ export function createTimeBar(parent: Sel<HTMLElement>, env: Env): TimeBar {
         .attr('aria-pressed', (p) => String(p.range.from === state.range.from && p.range.to === state.range.to));
 
       metrics.attr('aria-checked', (m) => String(m.id === state.metric)).classed('is-active', (m) => m.id === state.metric);
-      const ratable = f.metric.kind !== 'mean' && env.population !== null;
-      perBox.property('checked', f.display.perCapita).attr('disabled', ratable ? null : '');
-      perField
-        .classed('is-disabled', !ratable)
-        .attr('title', ratable ? 'Diviser par la population moyenne de la période (Banque mondiale)' : env.population === null ? 'Population indisponible' : 'Déjà un taux : sans objet pour les morts par incident');
-      const suicide = f.filters.suicide === null ? null : String(f.filters.suicide);
-      suicideButtons.attr('aria-checked', (o) => String(o.value === suicide)).classed('is-active', (o) => o.value === suicide);
 
+      // The button shows how many filters are on, so that a folded filter is never forgotten.
       const chosenGroups = state.filters.group ?? [];
+      const otherFilters = Object.entries(state.filters)
+        .filter(([dim]) => dim !== 'group' && dim !== 'suicide')
+        .flatMap(([dim, values]) => values.map((value) => categoryLabel(dim, value)));
+      const active = chosenGroups.length + (f.filters.suicide === null ? 0 : 1) + otherFilters.length;
+      filterButton
+        .html(`${icon('filters')}<span>Filtres</span>${active > 0 ? `<span class="cv-count">${active}</span>` : ''}`)
+        .attr('aria-label', active > 0 ? `Filtres et options, ${active} filtre${active > 1 ? 's' : ''} actif${active > 1 ? 's' : ''}` : 'Filtres et options')
+        .classed('is-active', active > 0 || f.display.perCapita);
+
       groupChips
         .selectAll<HTMLButtonElement, string>('button')
         .data(chosenGroups, (name) => name)
@@ -354,34 +463,27 @@ export function createTimeBar(parent: Sel<HTMLElement>, env: Env): TimeBar {
         .text((name) => `${categoryLabel('group', name)} ×`)
         .on('click', (_event: MouseEvent, name) => store.set((s) => ({ filters: { ...s.filters, group: (s.filters.group ?? []).filter((v) => v !== name) } })));
 
+      const suicide = f.filters.suicide === null ? null : String(f.filters.suicide);
+      suicideButtons.attr('aria-checked', (o) => String(o.value === suicide)).classed('is-active', (o) => o.value === suicide);
+
+      const ratable = f.metric.kind !== 'mean' && env.population !== null;
+      perInput.property('checked', f.display.perCapita).attr('disabled', ratable ? null : '');
+      perField
+        .classed('is-disabled', !ratable)
+        .attr('title', ratable ? 'Diviser par la population moyenne de la période (Banque mondiale)' : env.population === null ? 'Population indisponible' : 'Déjà un taux : sans objet pour les morts par incident');
+
       mode.property('value', f.compareChosen ? 'chosen' : 'previous');
       fromYear.attr('hidden', f.compareChosen ? null : '').property('value', f.compare?.from ?? first);
       toYear.attr('hidden', f.compareChosen ? null : '').property('value', f.compare?.to ?? first);
       compareText.text(f.compareChosen ? '' : f.compare === null ? '(aucune avant cette période)' : `(${formatRange(f.compare)})`);
 
-      const others = Object.entries(state.filters)
-        .filter(([dim]) => dim !== 'group' && dim !== 'suicide')
-        .flatMap(([dim, values]) => values.map((value) => categoryLabel(dim, value)));
-      filters.attr('hidden', others.length === 0 ? '' : null).selectAll('*').remove();
-      if (others.length > 0) {
-        filters.append('span').text(`Filtres posés par une autre vue : ${others.join(', ')}`);
-        filters
-          .append('button')
-          .attr('type', 'button')
-          .attr('class', 'cv-link-button')
-          .text('Les retirer')
-          .on('click', () =>
-            store.set((s) => {
-              const kept: Record<string, readonly string[]> = {};
-              if (s.filters.group !== undefined) kept.group = s.filters.group;
-              if (s.filters.suicide !== undefined) kept.suicide = s.filters.suicide;
-              return { filters: kept };
-            }),
-          );
-      }
+      others.attr('hidden', otherFilters.length === 0 ? '' : null).text(otherFilters.length === 0 ? '' : `Filtres posés par une autre vue : ${otherFilters.join(', ')}`);
+      reset.attr('hidden', active === 0 ? '' : null);
     },
     destroy() {
       stopPlay();
+      if (shareTimer !== null) win?.clearTimeout(shareTimer);
+      doc.removeEventListener('pointerdown', onOutside);
     },
   };
 }

@@ -7,8 +7,9 @@ import { baseRadius, clampCamera, easeOut, fitCamera, flight, frontProjection, k
 import { formatCount, formatRange, formatRate, formatShare, formatTick, formatWithUnit, ordinal, plural } from './format';
 import type { Env, Frame } from './frame';
 import { HexGrid, type HexBin } from './hexbin';
+import { icon, iconLabel } from './icons';
 import { cellsOf, deadliestFirst, incidentCategory, incidentDate, type Cells, type IncidentFiles, type IncidentSet } from './incidents';
-import { emptyTotals, isNamedGroup, knownShareOf, metricOf, type Totals } from './model';
+import { emptyTotals, filtersKey, isNamedGroup, knownShareOf, metricOf, type Totals } from './model';
 import { MIN_POPULATION_FOR_RATE } from './population';
 import { MAX_SELECTION, selectedCountries as selectedOf, toggleCountry, type Level } from './selection';
 import type { Sel, TooltipLine } from './ui';
@@ -32,6 +33,7 @@ const FONT = 'system-ui, -apple-system, "Segoe UI", sans-serif';
 /** Degrees per second of the idle rotation. */
 const SPIN_SPEED = 3;
 const COLOR_TWEEN_MS = 320;
+const FADE_MS = 200;
 const HEX_RADIUS = 9;
 /** Above this many incidents in view, points are binned into hexagons (when bins stay large). */
 const POINTS_MAX = 1500;
@@ -39,7 +41,6 @@ const LINKS_SHOWN = 8;
 const WORLD_LABELS = 5;
 /** Rates (often below 1 per million) spread over four decades of a log scale under the maximum. */
 const RATE_DECADES = 4;
-const OTHER_ATTACK = '#8a8983';
 const CITY_LABELS = 7;
 
 /** A drawn shape and its bounding circle on the sphere, to skip what cannot be on screen. */
@@ -91,10 +92,15 @@ interface Placed {
   index: Uint32Array;
 }
 
+/** What the panel points at: a country or an organization (shared hover), or one incident. */
+export type Highlight = { readonly dim: string; readonly id: string } | null;
+
 export interface Globe {
   update(frame: Frame): void;
-  /** Country hovered elsewhere (panel): outlined on the globe. */
-  highlight(iso3: string | null): void;
+  /** Country or organization hovered elsewhere (panel, other views): outlined on the globe. */
+  highlight(ref: Highlight): void;
+  /** Incident hovered in the panel: ringed where it is. */
+  previewIncident(eventId: string | null): void;
   destroy(): void;
 }
 
@@ -140,11 +146,18 @@ export function createGlobe(parent: Sel<HTMLDivElement>, env: Env, atlases: Glob
   const controls = parent.append('div').attr('class', 'cv-zoom').attr('role', 'group').attr('aria-label', 'Zoom');
   const legend = parent.append('div').attr('class', 'cv-legend');
 
-  const button = (label: string, title: string, onClick: () => void) =>
-    controls.append('button').attr('type', 'button').attr('aria-label', title).attr('title', title).text(label).on('click', onClick);
-  button('+', 'Zoomer', () => zoomBy(1.6));
-  button('−', 'Dézoomer', () => zoomBy(1 / 1.6));
-  button('◎', 'Voir le monde entier', () => flyTo(worldCamera()));
+  // + and − are universal: icon alone, with a label for screen readers. « Monde » gets its word (D22).
+  const button = (html: string, title: string, onClick: () => void) =>
+    controls.append('button').attr('type', 'button').attr('aria-label', title).attr('title', title).html(html).on('click', onClick);
+  button(icon('plus'), 'Zoomer (+)', () => zoomBy(1.6));
+  button(icon('minus'), 'Dézoomer (−)', () => zoomBy(1 / 1.6));
+  parent
+    .append('button')
+    .attr('type', 'button')
+    .attr('class', 'cv-world-button')
+    .attr('title', 'Revenir au globe entier')
+    .html(iconLabel('globe', 'Monde'))
+    .on('click', () => flyTo(worldCamera()));
 
   // ------------------------------------------------------------------ geometry
   const detail = buildLayer(atlases.detail);
@@ -177,6 +190,13 @@ export function createGlobe(parent: Sel<HTMLDivElement>, env: Env, atlases: Glob
   let pointerInside = false;
   let hovered: string | null = null;
   let external: string | null = null;
+  let externalGroup: string | null = null;
+  let previewed: string | null = null;
+  /** Cross-fade of the incident layer when the period or a filter changes (D22). */
+  const fadeCanvas = doc.createElement('canvas');
+  let fadeStart = -Infinity;
+  let fadeCamera = '';
+  let incidentKey = '';
   let mode: Mode = 'choropleth';
 
   let targetFills = new Map<string, Fill>();
@@ -254,7 +274,7 @@ export function createGlobe(parent: Sel<HTMLDivElement>, env: Env, atlases: Glob
       animating = true;
       dirty = true;
     }
-    if (t - tweenStart < COLOR_TWEEN_MS) {
+    if (t - tweenStart < COLOR_TWEEN_MS || t - fadeStart < FADE_MS) {
       animating = true;
       dirty = true;
     }
@@ -402,7 +422,17 @@ export function createGlobe(parent: Sel<HTMLDivElement>, env: Env, atlases: Glob
     context.setTransform(1, 0, 0, 1, 0, 0);
     context.clearRect(0, 0, element.width, element.height);
     context.drawImage(baseCanvas, 0, 0);
+    // The previous incidents fade out over the new ones; a camera move ends the fade at once.
+    const fade = (now() - fadeStart) / FADE_MS;
+    if (fade < 1 && fadeCamera === cameraKey(element)) {
+      context.globalAlpha = 1 - easeOut(fade);
+      context.drawImage(fadeCanvas, 0, 0);
+      context.globalAlpha = 1;
+    }
     context.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    if (externalGroup !== null) drawGroupCountries(context, f, externalGroup);
+    if (previewed !== null) drawPreview(context, previewed);
 
     const highlighted = hovered ?? external;
     if (highlighted !== null) {
@@ -419,6 +449,46 @@ export function createGlobe(parent: Sel<HTMLDivElement>, env: Env, atlases: Glob
       }
     }
     updateLegend(f);
+  }
+
+  function cameraKey(element: HTMLCanvasElement): string {
+    return `${camera.lambda}|${camera.phi}|${camera.k}|${element.width}x${element.height}`;
+  }
+
+  /** Countries where an organization hovered in the panel acts, over the window. */
+  function drawGroupCountries(context: CanvasRenderingContext2D, f: Frame, name: string): void {
+    const g = model.indexOf('group', name);
+    if (g < 0) return;
+    const path = geoPath(projectionFor(camera, viewport), context);
+    const countryCount = model.countryCodes.length;
+    context.beginPath();
+    for (let c = 0; c < countryCount; c++) {
+      if ((f.scan.groupCountry.get(g * countryCount + c)?.incidents ?? 0) === 0) continue;
+      const place = places.get(model.countryCodes[c] ?? '');
+      if (place !== undefined) path(place.shape.feature);
+    }
+    context.fillStyle = 'rgba(29, 29, 27, 0.12)';
+    context.fill();
+    context.strokeStyle = INK;
+    context.lineWidth = 1.5;
+    context.stroke();
+  }
+
+  /** A ring around an incident hovered in the panel, at whatever zoom. */
+  function drawPreview(context: CanvasRenderingContext2D, eventId: string): void {
+    const found = files.find(eventId);
+    if (found === undefined) return;
+    const { set, index: i } = found;
+    const out: [number, number] = [0, 0];
+    if (!new PointProjector(camera, viewport).project(set.cosLat[i] ?? 0, set.sinLat[i] ?? 0, set.cosLon[i] ?? 0, set.sinLon[i] ?? 0, out)) return;
+    context.beginPath();
+    context.arc(out[0], out[1], 9, 0, Math.PI * 2);
+    context.strokeStyle = 'rgba(255, 255, 255, 0.95)';
+    context.lineWidth = 5;
+    context.stroke();
+    context.strokeStyle = INK;
+    context.lineWidth = 2;
+    context.stroke();
   }
 
   /** The simplified geometry at a low zoom or while moving across a region, the detailed one otherwise. */
@@ -668,18 +738,13 @@ export function createGlobe(parent: Sel<HTMLDivElement>, env: Env, atlases: Glob
   }
 
   /** Colours of the five most frequent attack types (validated order); the others share a grey. */
-  const attackColors = new Map<string, string>(
-    ['Bombing/Explosion', 'Armed Assault', 'Assassination', 'Hostage Taking (Kidnapping)', 'Facility/Infrastructure Attack'].map((type, i) => [
-      type,
-      palette.categorical[[0, 1, 2, 5, 3][i] ?? 0] ?? OTHER_ATTACK,
-    ]),
-  );
+  const attackColors = new Map<string, string>(Object.entries(palette.attackTypes));
   const attackBySet = new WeakMap<IncidentSet, readonly string[]>();
 
   function attackColorOf(set: IncidentSet, i: number): string {
     let colors = attackBySet.get(set);
-    if (colors === undefined) attackBySet.set(set, (colors = set.file.dictionaries.attackType.map((type) => attackColors.get(type) ?? OTHER_ATTACK)));
-    return colors[set.file.columns.attackType[i] ?? 0] ?? OTHER_ATTACK;
+    if (colors === undefined) attackBySet.set(set, (colors = set.file.dictionaries.attackType.map((type) => attackColors.get(type) ?? palette.other)));
+    return colors[set.file.columns.attackType[i] ?? 0] ?? palette.other;
   }
 
   function drawPoints(context: CanvasRenderingContext2D, f: Frame): void {
@@ -821,7 +886,7 @@ export function createGlobe(parent: Sel<HTMLDivElement>, env: Env, atlases: Glob
           keys.append('span').attr('class', 'cv-swatch').style('background', color);
           keys.append('span').text(categoryLabel('attackType', type));
         }
-        keys.append('span').attr('class', 'cv-swatch').style('background', OTHER_ATTACK);
+        keys.append('span').attr('class', 'cv-swatch').style('background', palette.other);
         keys.append('span').text('autres et inconnu');
       } else if (f.selected.length > 0) {
         const keys = legend.append('div').attr('class', 'cv-legend-row');
@@ -1250,6 +1315,17 @@ export function createGlobe(parent: Sel<HTMLDivElement>, env: Env, atlases: Glob
     const previous = frame;
     frame = next;
     baseVersion++;
+    // A new period or filter cross-fades the incidents (not the first frame, not without motion).
+    const key = `${next.layer}|${next.state.range.from}-${next.state.range.to}|${filtersKey(next.filters)}|${next.layer === 'countries' ? next.selected.join(',') : ''}|${next.metric.id}`;
+    const element = canvas.node();
+    if (key !== incidentKey && previous !== null && !reducedMotion && mode !== 'choropleth' && element != null && element.width > 0) {
+      fadeCanvas.width = element.width;
+      fadeCanvas.height = element.height;
+      fadeCanvas.getContext?.('2d')?.drawImage(element, 0, 0);
+      fadeStart = now();
+      fadeCamera = cameraKey(element);
+    }
+    incidentKey = key;
     if (previous === null || previous.scan !== next.scan) linkIndex = null;
 
     const fills = computeFills(next);
@@ -1298,9 +1374,17 @@ export function createGlobe(parent: Sel<HTMLDivElement>, env: Env, atlases: Glob
 
   return {
     update,
-    highlight(iso3) {
-      if (iso3 === external) return;
+    highlight(ref) {
+      const iso3 = ref?.dim === 'country' ? ref.id : null;
+      const group = ref?.dim === 'group' ? ref.id : null;
+      if (iso3 === external && group === externalGroup) return;
       external = iso3;
+      externalGroup = group;
+      requestDraw();
+    },
+    previewIncident(eventId) {
+      if (eventId === previewed) return;
+      previewed = eventId;
       requestDraw();
     },
     destroy() {
