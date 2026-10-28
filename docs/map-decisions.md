@@ -670,3 +670,148 @@ stables) et contrôle dans le navigateur. Exemples de résultats :
 - liens Irak → Turquie et Irak → Syrie par l'État islamique ;
 - l'incident le plus meurtrier de la sélection est Tikrit (12 juin 2014,
   1 570 morts).
+
+## D19. Vue « Carte par pays » : globe et zoom sémantique
+
+**Statut** : adoptée le 2026-10-28 avec Alban, à implémenter sur `feat/Alban_pays` ;
+remplacera D18. Principes de design dans `docs/PRODUCT.md`.
+
+**Décision** : la vue devient un globe plein écran (projection orthographique)
+dont la représentation change avec le niveau de zoom, pas seulement l'échelle.
+
+- **Mise en page** : le globe prend environ 70 % de la largeur et toute la
+  hauteur ; un panneau latéral fixe (environ 360 px) change de contenu selon le
+  niveau ; une barre basse porte la lecture, la période, la métrique, la période
+  de comparaison et la légende. Un fil d'Ariane (« Monde › Irak › 15 juin 2014 »)
+  permet de remonter. Tout tient sans défilement.
+- **Niveau monde** : choroplèthe de la métrique (échelle log) ; lecture animée
+  1970 → 2017 ; au survol d'un pays, infobulle (valeur, rang, variation de rang)
+  et arcs vers les pays où ses organisations nommées agissent aussi. Rotation lente
+  au repos, arrêtée dès la première interaction. Panneau : chiffres du monde avec
+  leur évolution, pays survolé.
+- **Niveau pays** (clic) : le globe pivote et plonge sur le pays (environ 1 s,
+  interpolation géodésique de la rotation et zoom ajusté à ses frontières), les
+  voisins s'estompent, les incidents apparaissent en hexagones de densité puis en
+  points (taille = morts) en zoomant davantage. Panneau : chiffres clés avec
+  ↑↓ par rapport à la période de comparaison (par défaut la période précédente de
+  même durée), organisations actives avec leur frise d'activité, 5 incidents les
+  plus meurtriers. Le pays exploré est écrit dans `state.focus`, que l'atlas lit
+  aussi.
+- **Comparaison de 2 pays** : Maj+clic ajoute un second pays ; le panneau passe
+  en deux colonnes. Les deux pays sont dans `state.pinned` (2 au plus, au lieu de
+  6). Si les deux ne tiennent pas dans un même hémisphère, le globe reste sur le
+  premier et le panneau compare quand même.
+- **Niveau incident** : clic sur un point, fiche avec le résumé GTD (chargé au clic).
+- **Clavier** : flèches pour tourner, +/− pour zoomer, Échap pour remonter.
+  `prefers-reduced-motion` : pas de rotation automatique, coupes à la place des
+  déplacements.
+
+**Arguments** :
+
+- La version D18 alignait 10 panneaux de même poids sur environ 2 600 px de
+  défilement ; la carte n'occupait qu'un tiers de l'écran. Rien ne disait où
+  regarder.
+- Un niveau répond à une question (monde : où et quand ; pays : combien et qui ;
+  incident : que s'est-il passé), ce qui rend la prise en main immédiate pour U4
+  et U1.
+- L'échelle de couleur reste fixée sur 1970–2017 pendant la lecture : sinon une
+  même couleur changerait de sens d'une année à l'autre.
+- Un globe cache la moitié du monde et déforme ses bords : il sert à s'orienter,
+  pas à comparer. Le rang et sa variation restent lisibles dans l'infobulle et le
+  panneau (T1, T12).
+- Ambiance claire, type infographie de presse : lisible au vidéoprojecteur dans
+  une salle éclairée, et sans le cliché « écran de surveillance » rouge sur noir.
+
+**Retiré de la vue** : barre de filtres croisés (type d'attaque, cible, arme,
+organisation, suicide), courbes annuelles, profils et Sankey des modes
+opératoires, classement dynamique, comparaison de 6 pays. Les modes opératoires
+restent à la vue `flow` (T6), le classement au `leaderboard` (T11), les filtres
+fins à l'atlas (T8). Les tâches déclarées par le module ne changent pas : T1, T3,
+T4, T9, T12.
+
+**Alternatives rejetées** :
+
+- *Récit guidé (scrollytelling)* : fort en soutenance, mais plus long à
+  construire et moins libre à explorer.
+- *Globe + panneaux allégés en dessous* : garde le défilement et la dispersion de
+  l'attention.
+- *Ambiance sombre, globe nocturne* : spectaculaire mais attendue pour le sujet,
+  et moins lisible projetée.
+- *Classement permanent à côté du globe* : écarté par choix de simplicité ; le
+  rang reste dans l'infobulle.
+
+**Points techniques à mesurer** : rendu en canvas (faire tourner les 235 formes
+du 50m en SVG à 60 images/s ne tiendra pas), avec une géométrie simplifiée pendant
+le mouvement si la cadence baisse ; hexagones calculés dans le module
+(`d3-hexbin` n'est pas installé) ; boucle d'animation coupée dans `destroy()`.
+
+**Vérification** : `npm run typecheck`, `npm test` (montage et démontage du
+module sans fuite d'abonnement ni de minuterie), `npm run coverage:tasks`, et
+contrôle dans le navigateur : monde, pays, deux pays éloignés, 1993, métrique
+« morts par incident », réduction des animations.
+
+## D20. Attentats visibles partout, sélection de 4 pays, période et organisation
+
+**Statut** : adoptée et implémentée le 2026-10-28 sur `feat/Alban_pays`, à la
+demande d'Alban ; complète D19. Justifications détaillées et sources dans
+`docs/etat-de-l-art.md`.
+
+**Décision** :
+
+- **Calque « Attentats » par défaut** : les incidents de tous les pays, à leur
+  position, en hexagones de densité de taille constante à l'écran (environ
+  30 km au niveau pays, 430 km au niveau monde), puis en points (taille =
+  morts) sous 1 500 incidents visibles ou sous 5 km par hexagone. Le calque
+  « Pays » (choroplèthe, D19) reste au choix (`x.map.layer=countries`).
+- **Sélection de 1 à 4 pays** dans `state.pinned`, `state.focus` = le dernier
+  ajouté. Clic : ajouter ou retirer ; double-clic : zoomer sur le pays ; clic
+  sur un hexagone : sélectionner le pays sous le curseur. La caméra ne bouge
+  que si le pays ajouté est hors de vue. « Tout désélectionner » et Échap
+  vident la sélection.
+- **Couleurs d'identité** : vert bleuté, vermillon, pourpre, orange de la
+  palette du projet (le bleu reste à la grandeur).
+- **Période** : glisser sur l'histogramme pour la choisir, glisser la période
+  pour la déplacer, clic pour une année, boutons par décennie.
+- **Organisation** : filtre avec recherche (3 500 organisations, les plus
+  actives d'abord) dans `state.filters.group` ; organisations du panneau
+  cliquables.
+- **Comparaison** : tableau à une colonne par pays, petits multiples annuels
+  sur le même axe du temps (une échelle par pays, maximum écrit).
+- **Qualité** : traits pointillés aux ruptures de collecte (1998, 2012), 1993
+  hachurée, mention « données 1970–2017 ».
+
+**Arguments** :
+
+- La concentration du terrorisme est infranationale (LaFree et coll. 2006 ;
+  Python et coll. 2019) : une carte par pays la cache.
+- Les hexagones règlent la superposition des incidents placés au centre des
+  villes (Carr et coll. 1987).
+- Une choroplèthe de comptages favorise les grands pays ; sans population dans
+  la GTD, elle ne peut pas être un taux, donc elle n'est plus le calque par défaut.
+- L'animation est la moins efficace pour l'analyse (Robertson et coll. 2008) :
+  la frise et les petits multiples restent toujours visibles.
+- Comparer = juxtaposer et encoder la différence (Gleicher et coll. 2011).
+- 4 pays : 4 colonnes tiennent dans le panneau, et c'est le nombre de couleurs
+  non bleues de la palette.
+
+**Palette vérifiée** (`validate_palette.js`, thème clair) : séparation sous
+daltonisme des paires adjacentes ≥ 11 ; toutes paires confondues, pourpre ↔
+vert à 7,6 sous deutéranopie (bande 6–8 : encodage secondaire requis, le nom est
+toujours affiché) ; pourpre et orange sous 3:1 de contraste, d'où les étiquettes
+et le tableau.
+
+**Performance** : les incidents sont regroupés par position (cellules de
+0,02°) avant la projection ; le fond du globe est gardé dans un canvas hors
+écran, et les frontières sont découpées par ligne pour n'en projeter que celles
+qui sont en vue. Les 235 fichiers d'incidents (2,5 Mo gzip) se chargent en
+arrière-plan, avec leur progression affichée.
+
+**Alternatives rejetées** : imposer la sélection d'un pays pour voir ses
+incidents (D19, ce que la demande corrige) ; Maj+clic pour comparer (geste
+caché) ; 6 pays (couleurs bleues confondues avec la rampe de grandeur).
+
+**Vérification** : `npm test` (149 tests, dont `camera.test.ts`,
+`selection.test.ts`, `windowMax` dans `model.test.ts`), `npm run typecheck`,
+`npm run coverage:tasks` (0 bloquant), et contrôle dans le navigateur : calque
+Attentats au niveau monde, sélection de deux pays puis désélection, filtre Boko
+Haram (2 418 incidents, 20 328 morts), période 1980–1989 choisie en glissant.
