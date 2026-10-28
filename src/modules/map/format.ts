@@ -34,6 +34,16 @@ export function formatRange(range: YearRange): string {
   return range.from === range.to ? String(range.from) : `${range.from}–${range.to}`;
 }
 
+/** French ordinal: "1er", "2e", "15e". */
+export function ordinal(n: number): string {
+  return n === 1 ? '1er' : `${n}e`;
+}
+
+/** "3 incidents", "1 mort": a count with its unit, singular for 0 and 1 as in French. */
+export function plural(n: number, singular: string, pluralForm = `${singular}s`): string {
+  return `${formatCount(n)} ${Math.abs(n) < 2 ? singular : pluralForm}`;
+}
+
 export type Change =
   | { readonly kind: 'none'; readonly text: string }
   | { readonly kind: 'up' | 'down' | 'same'; readonly text: string };

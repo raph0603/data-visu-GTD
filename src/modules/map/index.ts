@@ -1,47 +1,35 @@
-import { select } from 'd3';
-import { loadCountryAtlas } from '../../core/geo';
+import { json, select } from 'd3';
+import coarseTopologyUrl from 'world-atlas/countries-110m.json?url';
+import { buildCountryAtlas, loadCountryAtlas, type CountryAtlas } from '../../core/geo';
 import type { ModuleContext, ModuleHandle, VizModule } from '../../core/module';
-import { createComparePanel, type ComparePanel } from './compare';
-import { createComposition, type Composition } from './composition';
-import { createFilterBar, type FilterBar } from './filterbar';
-import { formatCount, formatRange } from './format';
 import { buildFrame, createEnv, type Env } from './frame';
-import { createGroups, type Groups } from './groups';
-import { createIncidentPanel, type IncidentPanel } from './incidentpanel';
+import { createGlobe, type Globe } from './globe';
 import { IncidentFiles } from './incidents';
-import { createKpis, type Kpis } from './kpis';
-import { CountryModel, FILTER_DIMS, readFilters, type FilterDim } from './model';
-import { createRace, type Race } from './race';
-import { createFlow, type Flow } from './sankey';
-import { SlotKeeper } from './selection';
-import { createTimeSeries, type TimeSeries } from './timeseries';
-import { card, Tooltip } from './ui';
-import { createProjection, createWorldMap, type WorldMap } from './worldmap';
+import { CountryModel } from './model';
+import { createPanel, type Panel } from './panel';
+import { clearCountries, SlotKeeper } from './selection';
+import { createTimeBar, type TimeBar } from './timebar';
+import { Tooltip } from './ui';
 import './map.css';
 
-interface Panels {
-  readonly filters: FilterBar;
-  readonly kpis: Kpis;
-  readonly map: WorldMap;
-  readonly compare: ComparePanel;
-  readonly series: TimeSeries;
-  readonly composition: Composition;
-  readonly flow: Flow;
-  readonly race: Race;
-  readonly groups: Groups;
-  readonly incidents: IncidentPanel;
+interface Parts {
+  readonly globe: Globe;
+  readonly panel: Panel;
+  readonly timebar: TimeBar;
 }
 
-const NO_FILTERS = readFilters({});
-
-type Counts = Record<FilterDim, Map<string, number>>;
-const emptyCounts = (): Counts => ({ attackType: new Map(), targetType: new Map(), weaponType: new Map(), group: new Map() });
+/** Simplified geometry drawn while the globe moves; the view works without it. */
+function loadCoarseAtlas(): Promise<CountryAtlas | null> {
+  return json(coarseTopologyUrl)
+    .then(buildCountryAtlas)
+    .catch(() => null);
+}
 
 /**
- * The country view: everything about countries, linked together. A filter row scopes every panel;
- * the map shows the filtered metric by country, the exact incidents and the organizations that link
- * the selected countries; up to six countries are compared in figures, curves, operating profiles,
- * a moving ranking, a flow diagram, their organizations and their deadliest incidents.
+ * The country view (D19): a globe to turn and dive into. Its level follows the shared state: the
+ * world, one explored country (focus) with an optional second one (pinned), one incident. The
+ * panel beside it answers the question of the level; the bar under it holds the period, the play,
+ * the metric and the comparison period.
  */
 const mapModule: VizModule = {
   id: 'map',
@@ -50,73 +38,62 @@ const mapModule: VizModule = {
   mount(host: HTMLElement, ctx: ModuleContext): ModuleHandle {
     const { store, dataset, palette, data } = ctx;
     const view = select(host).append('section').attr('class', 'cv');
-    const status = view.append('p').attr('class', 'cv-status').text('Chargement des données…');
+    const stage = view.append('div').attr('class', 'cv-stage');
+    const globeBox = stage.append('div').attr('class', 'cv-globe');
+    globeBox.append('div').attr('class', 'cv-globe-skeleton').attr('aria-hidden', 'true');
+    const status = globeBox.append('p').attr('class', 'cv-status').text('Chargement des données…');
     const tooltip = new Tooltip(view);
-    const footnote = view.append('p').attr('class', 'cv-footnote');
 
     let alive = true;
     let env: Env | null = null;
-    let panels: Panels | null = null;
+    let parts: Parts | null = null;
+    let files: IncidentFiles | null = null;
     const slots = new SlotKeeper();
     let scheduled = false;
-    let countsKey = '';
-    let counts = emptyCounts();
+    let loadingAll = false;
+    let progressTimer: number | null = null;
 
     function render(): void {
       scheduled = false;
-      if (!alive || env === null || panels === null) return;
-      const { model } = env;
-      const state = store.get();
-      const frame = buildFrame(env, state, slots);
+      if (!alive || env === null || parts === null || files === null) return;
+      const frame = buildFrame(env, store.get(), slots);
+      if (frame.selected.length > 0 && files.missing(frame.selected)) void files.ensure(frame.selected).then(schedule);
+      if (frame.layer === 'events') loadAll(env.drawable);
+      parts.timebar.update(frame);
+      parts.panel.update(frame);
+      parts.globe.update(frame);
+    }
 
-      // Option counts of the filter lists: the window and the selection, without any filter.
-      const key = `${state.range.from}-${state.range.to}|${frame.selectedIdx.join(',')}`;
-      if (key !== countsKey) {
-        countsKey = key;
-        const scan = model.scan(NO_FILTERS, state.range, frame.selectedIdx);
-        counts = emptyCounts();
-        for (const [g, t] of scan.combined.group) counts.group.set(model.dict.group[g] ?? '', t.incidents);
-        for (const dim of ['attackType', 'targetType', 'weaponType'] as const) {
-          scan.combined[dim].forEach((t, i) => counts[dim].set(model.dict[dim][i] ?? '', t.incidents));
-        }
-      }
-      // A filtered value stays listed even with no incident in the window, so it can be removed.
-      for (const dim of FILTER_DIMS) for (const value of frame.filters[dim] ?? []) if (!counts[dim].has(value)) counts[dim].set(value, 0);
-
-      panels.filters.update(frame, counts);
-      panels.kpis.update(frame);
-      panels.map.update(frame);
-      panels.compare.update(frame);
-      panels.series.update(frame);
-      panels.composition.update(frame);
-      panels.flow.update(frame);
-      panels.race.update(frame);
-      panels.groups.update(frame);
-      panels.incidents.update(frame);
-      highlight();
-
-      const rest = model.countryOf('');
-      const hidden = rest < 0 ? 0 : model.totals(frame.table, [rest], state.range).incidents;
-      footnote.text(
-        `${formatCount(hidden)} incident(s) de ${formatRange(state.range)} sans pays représentable (URSS, Yougoslavie, Tchécoslovaquie, ` +
-          'Serbie-Monténégro, Kosovo, « International ») : absents de la carte, comptés dans les chiffres du monde.',
-      );
+    /**
+     * The incident layer needs every country's file (2.5 MB gzip in all): they load in the
+     * background, and the globe fills in as they arrive, a render every half second at most.
+     */
+    function loadAll(iso3s: readonly string[]): void {
+      if (loadingAll || files === null) return;
+      loadingAll = true;
+      const loader = files;
+      const onProgress = () => {
+        if (!alive || progressTimer !== null) return;
+        progressTimer = window.setTimeout(() => {
+          progressTimer = null;
+          schedule();
+        }, 500);
+      };
+      for (const iso3 of iso3s) void loader.ensure([iso3]).then(onProgress);
     }
 
     // Several slices often change in one interaction: render once, after the store settles.
     function schedule(): void {
-      if (scheduled) return;
+      if (scheduled || !alive) return;
       scheduled = true;
       queueMicrotask(render);
     }
 
-    function highlight(): void {
-      if (panels === null) return;
-      const hover = store.get().hover;
-      const hovered = hover?.dim === 'country' ? hover.id : null;
-      panels.map.highlight(hovered);
-      panels.compare.highlight(hovered);
-      panels.race.highlight(hovered);
+    function hover(): void {
+      const ref = store.get().hover;
+      const iso3 = ref?.dim === 'country' ? ref.id : null;
+      parts?.globe.highlight(iso3);
+      parts?.panel.hover(iso3);
     }
 
     const offs = [
@@ -124,65 +101,53 @@ const mapModule: VizModule = {
       store.subscribe((s) => s.range, schedule),
       store.subscribe((s) => s.compare, schedule),
       store.subscribe((s) => s.filters, schedule),
+      store.subscribe((s) => s.focus, schedule),
       store.subscribe((s) => s.pinned, schedule),
       store.subscribe((s) => s.incident, schedule),
       store.subscribe((s) => s.ext, schedule),
-      store.subscribe((s) => s.hover, highlight),
+      store.subscribe((s) => s.hover, hover),
     ];
 
-    Promise.all([loadCountryAtlas(), data.countryYear(), data.cube()])
-      .then(([atlas, countries, cube]) => {
+    // Échap closes the incident sheet, then empties the selection, from anywhere in the view.
+    view.on('keydown', (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      const state = store.get();
+      if (state.incident !== null) store.set({ incident: null });
+      else if (state.pinned.some((r) => r.dim === 'country')) clearCountries(store);
+      else return;
+      event.preventDefault();
+    });
+
+    Promise.all([loadCountryAtlas(), loadCoarseAtlas(), data.countryYear(), data.cube()])
+      .then(([detail, coarse, countries, cube]) => {
         if (!alive) return;
         status.remove();
+        globeBox.select('.cv-globe-skeleton').remove();
         const model = new CountryModel(cube, dataset.years.gaps);
         const built = createEnv({ store, dataset, palette, data, model, countries, tooltip });
         env = built;
-        const projection = createProjection();
-        const files = new IncidentFiles(data, projection);
-
-        const filters = createFilterBar(view, built);
-        const kpis = createKpis(view, built);
-        const main = view.append('div').attr('class', 'cv-main');
-        const mapCard = card(main, 'cv-card-map', 'Carte des pays');
-        const side = main.append('div').attr('class', 'cv-side');
-        const compareCard = card(side, 'cv-card-compare', 'Pays comparés');
-        const seriesCard = card(side, 'cv-card-series', 'Évolution');
-        const rowA = view.append('div').attr('class', 'cv-row');
-        const compositionCard = card(rowA, 'cv-card-composition', 'Modes opératoires');
-        const flowCard = card(rowA, 'cv-card-flow', 'Flux : attaque → cible → arme');
-        const rowB = view.append('div').attr('class', 'cv-row');
-        const raceCard = card(rowB, 'cv-card-race', 'Classement dynamique');
-        const groupsCard = card(rowB, 'cv-card-groups', 'Organisations');
-        const incidentsCard = card(view, 'cv-card-incidents', 'Incidents');
-        footnote.raise(); // closes the view, after the panels
-
-        const map = createWorldMap(built, mapCard, atlas, projection, files, (eventId) => store.set({ incident: eventId }));
-        panels = {
-          filters,
-          kpis,
-          map,
-          compare: createComparePanel(built, compareCard),
-          series: createTimeSeries(built, seriesCard),
-          composition: createComposition(built, compositionCard),
-          flow: createFlow(built, flowCard),
-          race: createRace(built, raceCard),
-          groups: createGroups(built, groupsCard),
-          incidents: createIncidentPanel(built, incidentsCard, files, (set, i) => map.locate(set, i)),
+        files = new IncidentFiles(data);
+        parts = {
+          globe: createGlobe(globeBox, built, { detail, coarse }, files),
+          panel: createPanel(stage, built, files),
+          timebar: createTimeBar(view, built),
         };
         render();
+        hover();
       })
       .catch((error: unknown) => {
         if (!alive) return;
-        status.attr('class', 'cv-status error').text(`Vue indisponible : ${error instanceof Error ? error.message : String(error)}`);
+        status.attr('class', 'cv-status is-error').text(`Vue indisponible : ${error instanceof Error ? error.message : String(error)}`);
       });
 
     return {
       destroy() {
         alive = false;
+        if (progressTimer !== null) window.clearTimeout(progressTimer);
         offs.forEach((off) => off());
-        panels?.filters.destroy();
-        panels?.race.destroy();
-        panels?.map.destroy();
+        parts?.globe.destroy();
+        parts?.timebar.destroy();
+        view.on('keydown', null);
         view.remove();
       },
     };
