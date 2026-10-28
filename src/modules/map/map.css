@@ -1377,6 +1377,134 @@
   grid-column: 1 / -1;
 }
 
+/* ------------------------------------------------------------------ D21: rates, index, suicide, attack colours */
+.cv-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+  font-size: 13px;
+  color: var(--cv-secondary);
+  cursor: pointer;
+}
+
+.cv-check input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--cv-ink);
+}
+
+.cv-check.is-disabled {
+  color: var(--cv-muted);
+  cursor: not-allowed;
+}
+
+.cv-segmented-small {
+  align-self: start;
+  width: fit-content;
+}
+
+.cv-segmented-small button {
+  min-height: 28px;
+  padding: 3px 9px;
+  font-size: 12.5px;
+}
+
+.cv-group-filter .cv-control-label + .cv-segmented {
+  margin-top: 0;
+}
+
+.cv-group-filter > .cv-control-label:not(:first-child) {
+  margin-top: 4px;
+}
+
+.cv-fig-rate {
+  display: block;
+  font-size: 12px;
+  color: var(--cv-secondary);
+}
+
+.cv-trend-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px 10px;
+  margin-bottom: 8px;
+}
+
+.cv-trend-head h3 {
+  margin: 0;
+}
+
+.cv-index {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.cv-index-window {
+  fill: var(--cv-accent-soft);
+}
+
+.cv-index-grid {
+  stroke: var(--cv-hairline);
+  stroke-width: 1;
+}
+
+.cv-index-base {
+  stroke: var(--cv-muted);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+}
+
+.cv-index-tick,
+.cv-index-year {
+  fill: var(--cv-muted);
+  font-size: 9px;
+}
+
+.cv-index-tick {
+  text-anchor: end;
+}
+
+.cv-index-year {
+  text-anchor: middle;
+}
+
+.cv-index-line {
+  fill: none;
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.cv-legend-switch {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+
+.cv-legend-switch button {
+  min-height: 26px;
+  padding: 2px 9px;
+  border: 1px solid var(--cv-hairline);
+  border-radius: 999px;
+  background: var(--cv-surface);
+  font-size: 12px;
+  color: var(--cv-secondary);
+  cursor: pointer;
+}
+
+.cv-legend-switch button.is-active {
+  border-color: var(--cv-ink);
+  background: var(--cv-ink);
+  color: #fff;
+}
+
 /* ------------------------------------------------------------------ small screens */
 @media (max-width: 980px) {
   .cv {

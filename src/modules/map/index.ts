@@ -7,6 +7,7 @@ import { createGlobe, type Globe } from './globe';
 import { IncidentFiles } from './incidents';
 import { CountryModel } from './model';
 import { createPanel, type Panel } from './panel';
+import { loadPopulation } from './population';
 import { clearCountries, SlotKeeper } from './selection';
 import { createTimeBar, type TimeBar } from './timebar';
 import { Tooltip } from './ui';
@@ -118,13 +119,13 @@ const mapModule: VizModule = {
       event.preventDefault();
     });
 
-    Promise.all([loadCountryAtlas(), loadCoarseAtlas(), data.countryYear(), data.cube()])
-      .then(([detail, coarse, countries, cube]) => {
+    Promise.all([loadCountryAtlas(), loadCoarseAtlas(), data.countryYear(), data.cube(), loadPopulation()])
+      .then(([detail, coarse, countries, cube, population]) => {
         if (!alive) return;
         status.remove();
         globeBox.select('.cv-globe-skeleton').remove();
         const model = new CountryModel(cube, dataset.years.gaps);
-        const built = createEnv({ store, dataset, palette, data, model, countries, tooltip });
+        const built = createEnv({ store, dataset, palette, data, model, countries, population, tooltip });
         env = built;
         files = new IncidentFiles(data);
         parts = {

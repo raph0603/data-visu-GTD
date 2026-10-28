@@ -11,6 +11,15 @@ export function formatValue(value: number, metric: MetricDef): string {
   return metric.kind === 'mean' ? oneDecimal.format(value) : whole.format(value);
 }
 
+const twoDecimals = new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+/** A rate per million inhabitants: "0,04", "3,7", "612". */
+export function formatRate(value: number): string {
+  if (Number.isNaN(value)) return 'pas de donnée';
+  if (value === 0) return '0';
+  return value < 1 ? twoDecimals.format(value) : value < 10 ? oneDecimal.format(value) : whole.format(value);
+}
+
 /** "12 345 morts", "2,4 morts par incident". */
 export function formatWithUnit(value: number, metric: MetricDef): string {
   return Number.isNaN(value) ? 'pas de donnée' : `${formatValue(value, metric)} ${metric.unit}`;

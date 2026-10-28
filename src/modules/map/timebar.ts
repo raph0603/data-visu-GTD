@@ -1,7 +1,7 @@
 import { interval, type Timer } from 'd3';
 import { categoryLabel } from '../../core/labels';
 import { rangeLength, type YearRange } from '../../core/state';
-import { formatCount, formatRange, formatWithUnit } from './format';
+import { formatCount, formatRange } from './format';
 import { previousWindow, type Env, type Frame } from './frame';
 import { readFilters, UNKNOWN_GROUP } from './model';
 import type { Sel } from './ui';
@@ -166,6 +166,16 @@ export function createTimeBar(parent: Sel<HTMLElement>, env: Env): TimeBar {
     .attr('role', 'radio')
     .text((m) => m.label)
     .on('click', (_event: MouseEvent, m) => store.set({ metric: m.id }));
+  // Rates per million inhabitants (D21): for counts and casualties, not for a mean per incident.
+  const perField = metricBox.append('label').attr('class', 'cv-check');
+  const perBox = perField
+    .append('input')
+    .attr('type', 'checkbox')
+    .on('change', (event: Event) => {
+      const on = (event.target as HTMLInputElement).checked;
+      store.set((s) => ({ ext: { ...s.ext, 'map.per': on ? 'capita' : 'raw' } }));
+    });
+  perField.append('span').text('par million d’habitants');
 
   // ------------------------------------------------------------------ organization filter
   const groupBox = bar.append('div').attr('class', 'cv-control cv-group-filter');
@@ -199,6 +209,25 @@ export function createTimeBar(parent: Sel<HTMLElement>, env: Env): TimeBar {
       store.set((s) => ({ filters: { ...s.filters, group: [...new Set([...(s.filters.group ?? []), name])] } }));
     });
   const groupChips = groupBox.append('div').attr('class', 'cv-chips');
+
+  // Suicide attacks are deadlier on average (Pape 2005, Mroszczyk 2019): a filter to test it (T8).
+  groupBox.append('span').attr('class', 'cv-control-label').attr('id', 'cv-suicide-label').text('Attentats-suicides');
+  const suicideButtons = groupBox
+    .append('div')
+    .attr('class', 'cv-segmented cv-segmented-small')
+    .attr('role', 'radiogroup')
+    .attr('aria-labelledby', 'cv-suicide-label')
+    .selectAll('button')
+    .data([
+      { value: null, label: 'Tous' },
+      { value: '1', label: 'Suicide' },
+      { value: '0', label: 'Hors suicide' },
+    ])
+    .join('button')
+    .attr('type', 'button')
+    .attr('role', 'radio')
+    .text((o) => o.label)
+    .on('click', (_event: MouseEvent, o) => store.set((s) => ({ filters: { ...s.filters, suicide: o.value === null ? [] : [o.value] } })));
 
   // ------------------------------------------------------------------ comparison
   const compareBox = bar.append('div').attr('class', 'cv-control cv-compare-control');
@@ -281,7 +310,7 @@ export function createTimeBar(parent: Sel<HTMLElement>, env: Env): TimeBar {
       const { state } = f;
       current = state.range;
       years.text(formatRange(state.range));
-      scope.text(`${f.metric.label} par an · ${f.selected.length === 0 ? 'monde' : f.selected.map((iso3) => env.name(iso3)).join(', ')}${f.filters.group !== null ? ' · organisations filtrées' : ''}`);
+      scope.text(`${f.display.label} par an · ${f.selected.length === 0 ? 'monde' : f.selected.map((iso3) => env.name(iso3)).join(', ')}${f.filtered ? ' · filtres actifs' : ''}`);
       const [fromInput, toInput] = ends;
       fromInput?.property('value', state.range.from);
       toInput?.property('value', state.range.to);
@@ -293,7 +322,7 @@ export function createTimeBar(parent: Sel<HTMLElement>, env: Env): TimeBar {
         .classed('is-gap', (year) => !Number.isFinite(f.series[year - first] ?? Number.NaN))
         .attr('title', (year) => {
           const v = f.series[year - first] ?? Number.NaN;
-          return Number.isFinite(v) ? `${year} : ${formatWithUnit(v, f.metric)}` : `${year} : pas de donnée (perdues par la source)`;
+          return Number.isFinite(v) ? `${year} : ${f.display.withUnit(v)}` : `${year} : pas de donnée (perdues par la source)`;
         });
       cells.select<HTMLSpanElement>('.cv-bar-fill').style('height', (year) => {
         const v = f.series[year - first] ?? Number.NaN;
@@ -305,6 +334,13 @@ export function createTimeBar(parent: Sel<HTMLElement>, env: Env): TimeBar {
         .attr('aria-pressed', (p) => String(p.range.from === state.range.from && p.range.to === state.range.to));
 
       metrics.attr('aria-checked', (m) => String(m.id === state.metric)).classed('is-active', (m) => m.id === state.metric);
+      const ratable = f.metric.kind !== 'mean' && env.population !== null;
+      perBox.property('checked', f.display.perCapita).attr('disabled', ratable ? null : '');
+      perField
+        .classed('is-disabled', !ratable)
+        .attr('title', ratable ? 'Diviser par la population moyenne de la période (Banque mondiale)' : env.population === null ? 'Population indisponible' : 'Déjà un taux : sans objet pour les morts par incident');
+      const suicide = f.filters.suicide === null ? null : String(f.filters.suicide);
+      suicideButtons.attr('aria-checked', (o) => String(o.value === suicide)).classed('is-active', (o) => o.value === suicide);
 
       const chosenGroups = state.filters.group ?? [];
       groupChips
@@ -324,7 +360,7 @@ export function createTimeBar(parent: Sel<HTMLElement>, env: Env): TimeBar {
       compareText.text(f.compareChosen ? '' : f.compare === null ? '(aucune avant cette période)' : `(${formatRange(f.compare)})`);
 
       const others = Object.entries(state.filters)
-        .filter(([dim]) => dim !== 'group')
+        .filter(([dim]) => dim !== 'group' && dim !== 'suicide')
         .flatMap(([dim, values]) => values.map((value) => categoryLabel(dim, value)));
       filters.attr('hidden', others.length === 0 ? '' : null).selectAll('*').remove();
       if (others.length > 0) {
@@ -338,6 +374,7 @@ export function createTimeBar(parent: Sel<HTMLElement>, env: Env): TimeBar {
             store.set((s) => {
               const kept: Record<string, readonly string[]> = {};
               if (s.filters.group !== undefined) kept.group = s.filters.group;
+              if (s.filters.suicide !== undefined) kept.suicide = s.filters.suicide;
               return { filters: kept };
             }),
           );

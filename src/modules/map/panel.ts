@@ -1,10 +1,11 @@
 import type { IncidentSummary, TopEventsFile } from '../../core/contracts';
 import { categoryLabel } from '../../core/labels';
 import type { MetricDef } from '../../core/meta';
-import { describeChange, formatCount, formatRange, formatShare, formatValue, formatWithUnit, ordinal, plural } from './format';
+import { describeChange, formatCount, formatRange, formatRate, formatShare, formatValue, formatWithUnit, ordinal, plural } from './format';
 import { weightOf, weightUnit, type CountryFigures, type Env, type Frame } from './frame';
 import { incidentCategory, incidentDate, type IncidentFiles } from './incidents';
 import { isNamedGroup, knownShareOf, metricOf, UNKNOWN_GROUP, type Breakdown } from './model';
+import { perMillion, WORLD } from './population';
 import { clearCountries, MAX_SELECTION, toggleCountry } from './selection';
 import type { Sel } from './ui';
 
@@ -189,15 +190,29 @@ export function createPanel<E extends Element>(parent: Sel<E>, env: Env, files: 
           .attr('title', `Colorer le globe selon : ${metric.label.toLowerCase()}`)
           .text(metric.label)
           .on('click', () => store.set({ metric: metric.id }));
-        for (const column of columns) figureCell(tr.append('td'), f, metric, column.figures);
+        for (const column of columns) figureCell(tr.append('td'), f, metric, column.figures, column.iso3 ?? WORLD);
       }
       section.append('p').attr('class', 'cv-caption').text('Cliquez une mesure pour l’appliquer au globe. ↑ : hausse par rapport à la période comparée.');
+      // 2.5 % of the base has no valid coordinates: in every figure here, but not on the globe.
+      const total = f.selected.length === 0 ? f.world.now.incidents : f.selected.reduce((sum, iso3) => sum + (f.figures.get(iso3)?.now.incidents ?? 0), 0);
+      const missing = f.selected.length === 0 ? f.withoutCoordinates.world : [...f.withoutCoordinates.byCountry.values()].reduce((a, b) => a + b, 0);
+      if (missing > 0) {
+        const share = total > 0 && !f.filtered ? ` (${formatShare(missing / total)})` : '';
+        section
+          .append('p')
+          .attr('class', 'cv-caption')
+          .text(`${plural(missing, 'incident')}${share} sans coordonnées sur la période : comptés dans ces chiffres, absents du globe${f.filtered ? ' (compte sans les filtres)' : ''}.`);
+      }
     });
   }
 
-  function figureCell(td: Sel<HTMLTableCellElement>, f: Frame, metric: MetricDef, figures: CountryFigures): void {
+  function figureCell(td: Sel<HTMLTableCellElement>, f: Frame, metric: MetricDef, figures: CountryFigures, code: string): void {
     const now = metricOf(figures.now, metric, f.covered);
     td.append('span').attr('class', 'cv-fig-value').text(formatValue(now, metric));
+    if (metric.kind !== 'mean' && env.population !== null) {
+      const rate = perMillion(now, env.population.mean(code, f.state.range));
+      if (!Number.isNaN(rate)) td.append('span').attr('class', 'cv-fig-rate').text(`${formatRate(rate)} par million d’hab.`);
+    }
     if (f.compare !== null && figures.before !== null) {
       const before = metricOf(figures.before, metric, model.coveredYears(f.compare) > 0);
       const change = describeChange(now, before);
@@ -225,7 +240,7 @@ export function createPanel<E extends Element>(parent: Sel<E>, env: Env, files: 
       const value = f.values.get(iso3) ?? Number.NaN;
       const rank = f.ranking.rank.get(iso3);
       section.append('h3').text(env.name(iso3));
-      section.append('p').attr('class', 'cv-hovered-value').text(formatWithUnit(value, f.metric));
+      section.append('p').attr('class', 'cv-hovered-value').text(f.display.withUnit(value));
       section
         .append('p')
         .attr('class', 'cv-caption')
@@ -234,64 +249,177 @@ export function createPanel<E extends Element>(parent: Sel<E>, env: Env, files: 
   }
 
   // ------------------------------------------------------------------ small multiples (selection)
+  /** Yearly values of one country, raw or per million inhabitants like the globe. */
+  function seriesOf(f: Frame, iso3: string): Float64Array {
+    const c = model.countryOf(iso3);
+    const series = model.series(f.table, c < 0 ? [] : [c], f.metric);
+    const population = env.population;
+    if (f.display.perCapita && population !== null) series.forEach((v, y) => (series[y] = perMillion(v, population.at(iso3, model.first + y))));
+    return series;
+  }
+
   /**
-   * One yearly curve per selected country, side by side with the same time axis (juxtaposition):
-   * the shapes, the peaks and the onsets compare at a glance, which the animation does not allow.
-   * Each curve has its own vertical scale (its maximum is written), since magnitudes differ by
-   * orders of magnitude; the table above compares the magnitudes.
+   * One yearly curve per selected country, with the same time axis. Two readings (D21):
+   * - one scale per country (juxtaposition): the shapes, the peaks and the onsets compare at a
+   *   glance, whatever the magnitudes;
+   * - an index, base 100 = the country's mean over the chosen period: the curves share one scale
+   *   and are superposed, so that trajectories (rise, decline, timing) compare directly.
+   * Both are static, which suits analysis better than the animation (Robertson et al. 2008).
    */
   function renderTrends(f: Frame): void {
     trends.attr('hidden', f.level === 'country' ? null : '');
     if (f.level !== 'country') return;
+    const indexed = f.state.ext['map.index'] === '1';
     rebuild(trends, (section) => {
-      section.append('h3').text(`${f.metric.label} par an`);
-      const list = section.append('ul').attr('class', 'cv-trend-list');
-      for (const iso3 of f.selected) {
-        const c = model.countryOf(iso3);
-        const series = model.series(f.table, c < 0 ? [] : [c], f.metric);
-        let max = 0;
-        let peak = model.first;
-        series.forEach((v, y) => {
-          if (Number.isFinite(v) && v > max) {
-            max = v;
-            peak = model.first + y;
-          }
-        });
-        const li = list.append('li');
-        const label = li.append('div').attr('class', 'cv-trend-label');
-        swatch(label, f, iso3);
-        label.append('span').text(env.name(iso3));
-        label.append('span').attr('class', 'cv-trend-max').text(max > 0 ? `max ${formatValue(max, f.metric)} (${peak})` : 'aucun');
-        const svg = li
-          .append('svg')
-          .attr('class', 'cv-trend')
-          .attr('viewBox', `0 0 ${model.span} 24`)
-          .attr('preserveAspectRatio', 'none')
-          .attr('role', 'img')
-          .attr('aria-label', `${env.name(iso3)} : ${f.metric.label.toLowerCase()} par an, maximum ${formatValue(max, f.metric)} en ${peak}`);
+      const header = section.append('div').attr('class', 'cv-trend-head');
+      header.append('h3').text(`${f.display.label} par an`);
+      const switcher = header.append('div').attr('class', 'cv-segmented cv-segmented-small').attr('role', 'radiogroup').attr('aria-label', 'Échelle des courbes');
+      for (const option of [
+        { id: '0', label: 'Une échelle par pays' },
+        { id: '1', label: 'Indice base 100' },
+      ]) {
+        const on = (option.id === '1') === indexed;
+        switcher
+          .append('button')
+          .attr('type', 'button')
+          .attr('role', 'radio')
+          .attr('data-key', `index-${option.id}`)
+          .attr('aria-checked', String(on))
+          .classed('is-active', on)
+          .text(option.label)
+          .on('click', () => store.set((s) => ({ ext: { ...s.ext, 'map.index': option.id } })));
+      }
+      if (indexed) indexChart(section, f);
+      else multiples(section, f);
+    });
+  }
+
+  function multiples(section: Sel<HTMLElement>, f: Frame): void {
+    const list = section.append('ul').attr('class', 'cv-trend-list');
+    for (const iso3 of f.selected) {
+      const series = seriesOf(f, iso3);
+      let max = 0;
+      let peak = model.first;
+      series.forEach((v, y) => {
+        if (Number.isFinite(v) && v > max) {
+          max = v;
+          peak = model.first + y;
+        }
+      });
+      const li = list.append('li');
+      const label = li.append('div').attr('class', 'cv-trend-label');
+      swatch(label, f, iso3);
+      label.append('span').text(env.name(iso3));
+      label.append('span').attr('class', 'cv-trend-max').text(max > 0 ? `max ${f.display.format(max)} (${peak})` : 'aucun');
+      const svg = li
+        .append('svg')
+        .attr('class', 'cv-trend')
+        .attr('viewBox', `0 0 ${model.span} 24`)
+        .attr('preserveAspectRatio', 'none')
+        .attr('role', 'img')
+        .attr('aria-label', `${env.name(iso3)} : ${f.display.label.toLowerCase()} par an, maximum ${f.display.format(max)} en ${peak}`);
+      svg
+        .append('rect')
+        .attr('class', 'cv-trend-window')
+        .attr('x', f.state.range.from - model.first)
+        .attr('width', f.state.range.to - f.state.range.from + 1)
+        .attr('height', 24);
+      series.forEach((v, y) => {
+        if (!Number.isFinite(v)) {
+          svg.append('rect').attr('class', 'cv-trend-gap').attr('x', y + 0.15).attr('y', 0).attr('width', 0.7).attr('height', 24);
+          return;
+        }
+        const h = max > 0 ? (22 * v) / max : 0;
         svg
           .append('rect')
-          .attr('class', 'cv-trend-window')
-          .attr('x', f.state.range.from - model.first)
-          .attr('width', f.state.range.to - f.state.range.from + 1)
-          .attr('height', 24);
-        series.forEach((v, y) => {
-          if (!Number.isFinite(v)) {
-            svg.append('rect').attr('class', 'cv-trend-gap').attr('x', y + 0.15).attr('y', 0).attr('width', 0.7).attr('height', 24);
-            return;
-          }
-          const h = max > 0 ? (22 * v) / max : 0;
-          svg
-            .append('rect')
-            .attr('x', y + 0.1)
-            .attr('y', 24 - h)
-            .attr('width', 0.8)
-            .attr('height', h)
-            .attr('fill', f.colors.get(iso3) ?? '#555');
-        });
+          .attr('x', y + 0.1)
+          .attr('y', 24 - h)
+          .attr('width', 0.8)
+          .attr('height', h)
+          .attr('fill', f.colors.get(iso3) ?? '#555');
+      });
+    }
+    section.append('p').attr('class', 'cv-caption').text('1970 → 2017, une échelle par pays · le fond marque la période · hachuré : 1993, pas de donnée.');
+  }
+
+  function indexChart(section: Sel<HTMLElement>, f: Frame): void {
+    const W = 320;
+    const H = 120;
+    const pad = { left: 30, right: 8, top: 8, bottom: 16 };
+    const x = (year: number) => pad.left + ((year - model.first + 0.5) / model.span) * (W - pad.left - pad.right);
+    const lines: { iso3: string; points: [number, number][]; base: number }[] = [];
+    const without: string[] = [];
+    let top = 100;
+    for (const iso3 of f.selected) {
+      const series = seriesOf(f, iso3);
+      let sum = 0;
+      let n = 0;
+      for (let year = f.state.range.from; year <= f.state.range.to; year++) {
+        const v = series[year - model.first] ?? Number.NaN;
+        if (Number.isFinite(v)) {
+          sum += v;
+          n++;
+        }
       }
-      section.append('p').attr('class', 'cv-caption').text('1970 → 2017, une échelle par pays · le fond marque la période · hachuré : 1993, pas de donnée.');
-    });
+      const base = n === 0 ? 0 : sum / n;
+      if (!(base > 0)) {
+        without.push(env.name(iso3));
+        continue;
+      }
+      const points: [number, number][] = [];
+      series.forEach((v, y) => {
+        if (!Number.isFinite(v)) return;
+        const index = (100 * v) / base;
+        points.push([model.first + y, index]);
+        if (index > top) top = index;
+      });
+      lines.push({ iso3, points, base });
+    }
+    const y = (index: number) => H - pad.bottom - (index / top) * (H - pad.top - pad.bottom);
+    const svg = section
+      .append('svg')
+      .attr('class', 'cv-index')
+      .attr('viewBox', `0 0 ${W} ${H}`)
+      .attr('role', 'img')
+      .attr(
+        'aria-label',
+        `Indice base 100 (moyenne de ${formatRange(f.state.range)}) : ${lines.map((l) => `${env.name(l.iso3)} jusqu’à ${Math.round(Math.max(...l.points.map((p) => p[1])))}`).join(', ')}`,
+      );
+    svg
+      .append('rect')
+      .attr('class', 'cv-index-window')
+      .attr('x', x(f.state.range.from) - (x(model.first + 1) - x(model.first)) / 2)
+      .attr('width', ((f.state.range.to - f.state.range.from + 1) / model.span) * (W - pad.left - pad.right))
+      .attr('y', pad.top)
+      .attr('height', H - pad.top - pad.bottom);
+    for (const tick of [0, 100, Math.round(top)].filter((t, i, all) => all.indexOf(t) === i && (t === 100 || t === 0 || top - 100 > top * 0.15))) {
+      svg.append('line').attr('class', tick === 100 ? 'cv-index-base' : 'cv-index-grid').attr('x1', pad.left).attr('x2', W - pad.right).attr('y1', y(tick)).attr('y2', y(tick));
+      svg.append('text').attr('class', 'cv-index-tick').attr('x', pad.left - 4).attr('y', y(tick) + 3).text(String(tick));
+    }
+    for (const year of [model.first, 1990, 2010, model.last]) {
+      svg.append('text').attr('class', 'cv-index-year').attr('x', x(year)).attr('y', H - 3).text(String(year));
+    }
+    for (const line of lines) {
+      // A gap year (1993) breaks the line instead of being drawn as a fall to zero.
+      let d = '';
+      let previous: number | null = null;
+      for (const [year, index] of line.points) {
+        d += `${previous !== null && year === previous + 1 ? 'L' : 'M'}${x(year).toFixed(1)},${y(index).toFixed(1)}`;
+        previous = year;
+      }
+      svg.append('path').attr('class', 'cv-index-line').attr('d', d).attr('stroke', f.colors.get(line.iso3) ?? '#555');
+    }
+    const keys = section.append('div').attr('class', 'cv-legend-row');
+    for (const line of lines) {
+      swatch(keys, f, line.iso3);
+      keys.append('span').text(`${env.name(line.iso3)} (100 = ${f.display.format(line.base)} par an)`);
+    }
+    section
+      .append('p')
+      .attr('class', 'cv-caption')
+      .text(
+        `Base 100 = moyenne annuelle de chaque pays sur ${formatRange(f.state.range)} (fond bleu) ; une seule échelle pour tous.${without.length > 0 ? ` Sans indice (aucune valeur sur la période) : ${without.join(', ')}.` : ''}`,
+      );
   }
 
   // ------------------------------------------------------------------ organizations
