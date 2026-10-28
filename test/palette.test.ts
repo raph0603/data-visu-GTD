@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
-import { lab } from 'd3';
+import { hcl, lab } from 'd3';
 import { describe, expect, it } from 'vitest';
-import { CATEGORICAL, NO_DATA_PATTERN_ID, ZERO_FILL, ensureNoDataPattern, sequential } from '../src/core/palette';
+import { ATTACK_TYPE_COLORS, CATEGORICAL, IDENTITY, NO_DATA_PATTERN_ID, ZERO_FILL, ensureNoDataPattern, sequential } from '../src/core/palette';
 
 const lightness = (css: string): number => lab(css).l;
 
@@ -27,6 +27,15 @@ describe('palette', () => {
 
   it('offers distinct categorical colours', () => {
     expect(new Set(CATEGORICAL).size).toBe(CATEGORICAL.length);
+  });
+
+  it('keeps blue out of the identity colours, which share the screen with the blue magnitude ramp', () => {
+    for (const color of IDENTITY) {
+      const { h } = hcl(color);
+      expect(h < 200 || h > 280).toBe(true);
+    }
+    expect(IDENTITY.every((c) => CATEGORICAL.includes(c))).toBe(true);
+    expect(Object.values(ATTACK_TYPE_COLORS).every((c) => CATEGORICAL.includes(c))).toBe(true);
   });
 
   it('adds the no-data hatch pattern once', () => {

@@ -1,16 +1,27 @@
+/*
+ * Shell tokens: the same neutrals and accent as the views (docs/methode-ui.md, D22). The page is a
+ * near-neutral off-white so that the only strong colour on screen is the data.
+ */
 :root {
   color-scheme: light;
   --ink: #1d1d1b;
-  --muted: #5f5f5a;
-  --line: #d6d5cf;
-  --accent: #0072b2;
+  --secondary: #4d4c48;
+  --muted: #6b6a65;
+  --line: #e2e1dc;
+  --strong-line: #c9c8c1;
+  --page: #f7f7f5;
+  --surface: #ffffff;
+  --accent: #1f5f99;
+  --focus: #0072b2;
+  --warning-bg: #fdf3dc;
+  --warning-line: #e6c36a;
   font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
 }
 
 body {
   margin: 0;
   color: var(--ink);
-  background: #fbfaf8;
+  background: var(--page);
 }
 
 header,
@@ -32,6 +43,8 @@ footer p {
 h1 {
   margin: 0 0 0.5rem;
   font-size: 1.1rem;
+  font-weight: 650;
+  letter-spacing: -0.01em;
 }
 
 nav[role='tablist'] {
@@ -41,32 +54,39 @@ nav[role='tablist'] {
 }
 
 nav button {
+  min-height: 40px;
   padding: 0.45rem 0.9rem;
-  border: 1px solid transparent;
-  border-bottom: none;
+  border: none;
+  border-radius: 8px 8px 0 0;
   background: none;
   font: inherit;
-  color: var(--muted);
+  color: var(--secondary);
   cursor: pointer;
+  transition: color 150ms ease-out, background-color 150ms ease-out;
+}
+
+nav button:hover {
+  background: rgba(29, 29, 27, 0.05);
+  color: var(--ink);
 }
 
 nav button[aria-selected='true'] {
+  font-weight: 600;
   color: var(--ink);
-  border-color: var(--line);
-  background: #fff;
   box-shadow: inset 0 -2px 0 var(--accent);
 }
 
 nav button:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--focus);
   outline-offset: 2px;
 }
 
 .banner {
   margin: 0.5rem 0 0;
   padding: 0.35rem 0.6rem;
-  border-left: 3px solid #e69f00;
-  background: #fdf3dc;
+  border: 1px solid var(--warning-line);
+  border-radius: 6px;
+  background: var(--warning-bg);
   font-size: 0.85rem;
 }
 
@@ -79,6 +99,13 @@ nav button:focus-visible {
   overflow: auto;
   padding: 0.75rem;
   border: 1px solid var(--line);
-  background: #fff;
+  border-radius: 8px;
+  background: var(--surface);
   font-size: 0.8rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  nav button {
+    transition: none;
+  }
 }
