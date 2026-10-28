@@ -5,7 +5,9 @@ import { metricDef, type DatasetMeta, type MetricDef } from '../../core/meta';
 import type { PaletteApi } from '../../core/palette';
 import { rangeLength, type AppState, type YearRange } from '../../core/state';
 import type { Store } from '../../core/store';
+import { formatRate, formatValue, formatWithUnit } from './format';
 import { filtersKey, metricOf, readFilters, hasFilter, type CountryModel, type Filters, type Scan, type Totals, type YearTable } from './model';
+import { MIN_POPULATION_FOR_RATE, perMillion, WORLD, type Population } from './population';
 import { levelOf, selectedCountries, type Level, type SlotKeeper } from './selection';
 import type { Tooltip } from './ui';
 
@@ -23,6 +25,8 @@ export interface Env {
   readonly data: DataApi;
   readonly model: CountryModel;
   readonly countries: CountryYearFile;
+  /** World Bank population (D21); null when the table could not be loaded: no rates then. */
+  readonly population: Population | null;
   /** ISO alpha-3 codes drawn on the map, sorted. */
   readonly drawable: readonly string[];
   /**
@@ -50,15 +54,25 @@ export interface CountryFigures {
   readonly before: Totals | null;
 }
 
-/** Everything derived from one state, shared by the globe, the panel and the time bar. */
+/** How the values of the countries read: raw, or per million inhabitants (D21). */
+export interface Display {
+  readonly perCapita: boolean;
+  readonly label: string;
+  readonly unit: string;
+  format(value: number): string;
+  withUnit(value: number): string;
+}
+
 /** What the globe draws at the world level: the incidents themselves, or one colour per country. */
 export type MapLayer = 'events' | 'countries';
 
+/** Everything derived from one state, shared by the globe, the panel and the time bar. */
 export interface Frame {
   readonly state: AppState;
   readonly level: Level;
   readonly layer: MapLayer;
   readonly metric: MetricDef;
+  readonly display: Display;
   readonly filters: Filters;
   readonly filtered: boolean;
   readonly table: YearTable;
@@ -66,7 +80,7 @@ export interface Frame {
   readonly selectedIdx: readonly number[];
   /** Identity colour of each selected country. */
   readonly colors: ReadonlyMap<string, string>;
-  /** Metric value of every drawable country over the window (NaN = no data). */
+  /** Value of every drawable country over the window, raw or per million (NaN = no data). */
   readonly values: ReadonlyMap<string, number>;
   readonly ranking: Ranking;
   /**
@@ -81,8 +95,13 @@ export interface Frame {
   readonly scan: Scan;
   readonly world: CountryFigures;
   readonly figures: ReadonlyMap<string, CountryFigures>;
-  /** One value per year of the span for the explored countries together, or the world (time bar). */
+  /** One value per year of the span for the selected countries together, or the world (time bar). */
   readonly series: Float64Array;
+  /**
+   * Incidents of the window without valid coordinates (2.5 % of the base): counted in every
+   * figure, absent from the globe. Not filtered by organization (agg/country_year.json has no group).
+   */
+  readonly withoutCoordinates: { readonly world: number; readonly byCountry: ReadonlyMap<string, number> };
   readonly covered: boolean;
 }
 
@@ -102,11 +121,27 @@ export function createEnv(base: Omit<Env, 'name' | 'region' | 'drawable' | 'iden
   };
 }
 
+export function displayOf(metric: MetricDef, perCapita: boolean): Display {
+  if (!perCapita) {
+    return { perCapita, label: metric.label, unit: metric.unit, format: (v) => formatValue(v, metric), withUnit: (v) => formatWithUnit(v, metric) };
+  }
+  const unit = `${metric.unit} par million d’habitants`;
+  return {
+    perCapita,
+    label: `${metric.label} par million d’habitants`,
+    unit,
+    format: formatRate,
+    withUnit: (v) => (Number.isNaN(v) ? 'pas de donnée' : `${formatRate(v)} ${unit}`),
+  };
+}
+
 const domainCache = new WeakMap<YearTable, Map<string, number>>();
 
 export function buildFrame(env: Env, state: AppState, slots: SlotKeeper): Frame {
-  const { model } = env;
+  const { model, population } = env;
   const metric = metricDef(env.dataset, state.metric);
+  // A mean per incident is already a rate: dividing it by a population would mean nothing.
+  const perCapita = state.ext['map.per'] === 'capita' && metric.kind !== 'mean' && population !== null;
   const filters = readFilters(state.filters);
   const table = model.table(filters);
   const selected = selectedCountries(state).filter((iso3) => env.countries.entities[iso3] !== undefined);
@@ -115,18 +150,21 @@ export function buildFrame(env: Env, state: AppState, slots: SlotKeeper): Frame 
   const colors = new Map(selected.map((iso3) => [iso3, env.identity[(slotOf.get(iso3) ?? 0) % env.identity.length] ?? '#555']));
   const covered = model.coveredYears(state.range) > 0;
   const compare = state.compare ?? previousWindow(state.range, model.first);
+  const pop = perCapita ? population : null;
 
-  const values = valuesOver(env, table, metric, state.range);
-  const ranking = rank(values, incidentsOver(env, table, state.range), metric);
-  const compareRanking = compare === null ? null : rank(valuesOver(env, table, metric, compare), incidentsOver(env, table, compare), metric);
+  const values = valuesOver(env, table, metric, state.range, pop);
+  const ranking = rank(values, incidentsOver(env, table, state.range), metric, pop === null ? undefined : (iso3) => pop.mean(iso3, state.range));
+  const compareRanking =
+    compare === null
+      ? null
+      : rank(valuesOver(env, table, metric, compare, pop), incidentsOver(env, table, compare), metric, pop === null ? undefined : (iso3) => pop.mean(iso3, compare));
 
-  const key = `${filtersKey(filters)}|${metric.id}|${rangeLength(state.range)}`;
+  const key = `${filtersKey(filters)}|${metric.id}|${rangeLength(state.range)}|${perCapita ? 'capita' : 'raw'}`;
   let domains = domainCache.get(table);
   if (domains === undefined) domainCache.set(table, (domains = new Map()));
   let domainMax = domains.get(key);
   if (domainMax === undefined) {
-    const drawn = env.drawable.map((iso3) => model.countryOf(iso3)).filter((c) => c >= 0);
-    domainMax = model.windowMax(table, drawn, metric, rangeLength(state.range), MIN_INCIDENTS_FOR_MEAN);
+    domainMax = pop === null ? model.windowMax(table, drawnIndexes(env), metric, rangeLength(state.range), MIN_INCIDENTS_FOR_MEAN) : rateWindowMax(env, table, metric, rangeLength(state.range), pop);
     domains.set(key, domainMax);
   }
 
@@ -140,11 +178,29 @@ export function buildFrame(env: Env, state: AppState, slots: SlotKeeper): Frame 
     figures.set(iso3, figuresOf(c < 0 ? [] : [c]));
   });
 
+  // The time bar: per million when asked, over the population of what it sums.
+  const series = model.series(table, selectedIdx.length > 0 ? selectedIdx : null, metric);
+  if (pop !== null) {
+    const codes = selected.length > 0 ? selected : [WORLD];
+    series.forEach((v, y) => {
+      const people = codes.reduce((sum, code) => sum + (pop.at(code, model.first + y) || 0), 0);
+      series[y] = perMillion(v, people);
+    });
+  }
+
+  const missing = (iso3: string): number => {
+    const years = env.countries.entities[iso3]?.withoutCoordinates ?? [];
+    let n = 0;
+    for (let year = state.range.from; year <= state.range.to; year++) n += years[year - model.first] ?? 0;
+    return n;
+  };
+
   return {
     state,
     level: levelOf(state),
     layer: state.ext['map.layer'] === 'countries' ? 'countries' : 'events',
     metric,
+    display: displayOf(metric, perCapita),
     filters,
     filtered: hasFilter(filters),
     table,
@@ -160,19 +216,44 @@ export function buildFrame(env: Env, state: AppState, slots: SlotKeeper): Frame 
     scan: model.scan(filters, state.range, selectedIdx),
     world: figuresOf(null),
     figures,
-    series: model.series(table, selectedIdx.length > 0 ? selectedIdx : null, metric),
+    series,
+    withoutCoordinates: { world: env.drawable.reduce((sum, iso3) => sum + missing(iso3), 0), byCountry: new Map(selected.map((iso3) => [iso3, missing(iso3)])) },
     covered,
   };
 }
 
-function valuesOver(env: Env, table: YearTable, metric: MetricDef, range: YearRange): Map<string, number> {
+function drawnIndexes(env: Env): number[] {
+  return env.drawable.map((iso3) => env.model.countryOf(iso3)).filter((c) => c >= 0);
+}
+
+function valuesOver(env: Env, table: YearTable, metric: MetricDef, range: YearRange, pop: Population | null): Map<string, number> {
   const covered = env.model.coveredYears(range) > 0;
   const values = new Map<string, number>();
   for (const iso3 of env.drawable) {
     const c = env.model.countryOf(iso3);
-    values.set(iso3, metricOf(c < 0 ? emptyCountry() : env.model.totals(table, [c], range), metric, covered));
+    const raw = metricOf(c < 0 ? emptyCountry() : env.model.totals(table, [c], range), metric, covered);
+    values.set(iso3, pop === null ? raw : perMillion(raw, pop.mean(iso3, range)));
   }
   return values;
+}
+
+/** Largest rate over any window of `length` years, among the countries large enough to be ranked. */
+function rateWindowMax(env: Env, table: YearTable, metric: MetricDef, length: number, pop: Population): number {
+  const { model } = env;
+  let max = 0;
+  for (const iso3 of env.drawable) {
+    const c = model.countryOf(iso3);
+    if (c < 0 || !pop.has(iso3)) continue;
+    for (let from = model.first; from + length - 1 <= model.last; from++) {
+      const range = { from, to: from + length - 1 };
+      if (model.coveredYears(range) === 0) continue;
+      const people = pop.mean(iso3, range);
+      if (!(people >= MIN_POPULATION_FOR_RATE)) continue;
+      const rate = perMillion(metricOf(model.totals(table, [c], range), metric, true), people);
+      if (rate > max) max = rate;
+    }
+  }
+  return max;
 }
 
 function incidentsOver(env: Env, table: YearTable, range: YearRange): Map<string, number> {
@@ -188,9 +269,16 @@ function emptyCountry(): Totals {
   return { incidents: 0, killedSum: 0, killedKnown: 0, woundedSum: 0, woundedKnown: 0 };
 }
 
-export function rank(values: ReadonlyMap<string, number>, incidents: ReadonlyMap<string, number>, metric: MetricDef): Ranking {
+/**
+ * Countries with a value above zero, most affected first. A mean needs enough incidents; a rate
+ * needs a population of at least a million (Monaco with one attack would otherwise lead).
+ */
+export function rank(values: ReadonlyMap<string, number>, incidents: ReadonlyMap<string, number>, metric: MetricDef, population?: (iso3: string) => number): Ranking {
   const eligible = [...values].filter(
-    ([iso3, v]) => v > 0 && (metric.kind !== 'mean' || (incidents.get(iso3) ?? 0) >= MIN_INCIDENTS_FOR_MEAN),
+    ([iso3, v]) =>
+      v > 0 &&
+      (metric.kind !== 'mean' || (incidents.get(iso3) ?? 0) >= MIN_INCIDENTS_FOR_MEAN) &&
+      (population === undefined || population(iso3) >= MIN_POPULATION_FOR_RATE),
   );
   eligible.sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1));
   const rankMap = new Map<string, number>();
