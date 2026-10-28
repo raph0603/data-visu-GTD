@@ -815,3 +815,55 @@ caché) ; 6 pays (couleurs bleues confondues avec la rampe de grandeur).
 `npm run coverage:tasks` (0 bloquant), et contrôle dans le navigateur : calque
 Attentats au niveau monde, sélection de deux pays puis désélection, filtre Boko
 Haram (2 418 incidents, 20 328 morts), période 1980–1989 choisie en glissant.
+
+## D21. Taux par million d'habitants, indice base 100, suicide, type d'attaque, coordonnées
+
+**Statut** : adoptée et implémentée le 2026-10-28 sur `feat/Alban_pays` ; suite
+de `docs/etat-de-l-art.md` (§3, §5, §8).
+
+**Décision** :
+
+- **Population** : Banque mondiale, SP.POP.TOTL (CC BY 4.0), 1970–2017,
+  téléchargée dans `data/raw/population/` puis réduite par
+  `preprocess/population.py` à `src/modules/map/population.json` (pays
+  dessinables + `WLD`, 84 Ko, 41 Ko gzip, commité). 213 pays sur 235 ont une
+  population ; les 22 autres ont 0 ou 1 incident, sauf Taïwan (50) et le Sahara
+  occidental (5), absents des données de la Banque mondiale.
+- **Taux** (`x.map.per=capita`) : valeur de la période ÷ population moyenne
+  des années connues × 10⁶. Sans objet pour « morts par incident ». Classement
+  réservé aux pays d'au moins un million d'habitants. Échelle de couleur :
+  quatre décennies de log10 sous le maximum (les taux sont souvent < 1), fixe
+  pendant la lecture comme D19.
+- **Indice base 100** (`x.map.index=1`) : 100 = moyenne annuelle de chaque pays
+  sur la période ; courbes superposées sur une seule échelle.
+- **Attentats-suicides** : filtre Tous / Suicide / Hors suicide
+  (`q.suicide`), appliqué partout comme l'organisation.
+- **Type d'attaque** (`x.map.color=attack`) : couleur des points, au choix dans
+  la légende ; 5 types (explosif, attaque armée, assassinat, enlèvement,
+  attaque d'installation, 95 % des incidents) + gris.
+- **Incidents sans coordonnées** : nombre de la période dans la légende et sous
+  le tableau des chiffres (compté sans les filtres, que
+  `agg/country_year.json` ne porte pas).
+
+**Pourquoi dans le module et pas dans `core/`** : le contrat de données est
+gelé et sa modification demande une revue à deux. La population est une donnée
+de référence, comme le fond de carte, pas une donnée de la GTD : elle vit dans
+le dossier de la vue. Si d'autres vues en ont besoin, elle pourra rejoindre
+`contracts.ts` et `DataApi` après revue.
+
+**Palette des types d'attaque** (`validate_palette.js`, clair) : ordre bleu,
+orange, vert bleuté, vermillon, pourpre ; paires adjacentes ≥ 11 sous
+daltonisme ; toutes paires, vert ↔ pourpre à 7,6 (bande 6–8 : le type est écrit
+dans la légende et l'infobulle) ; orange et pourpre sous 3:1, d'où la légende.
+
+**Alternatives rejetées** : population ajoutée à `agg/country_year.json`
+(modification du noyau sans revue) ; indice sur une année de base (souvent 0
+pour les petits pays) ; couleur par type d'attaque des hexagones (un hexagone
+mélange les types et perdrait la densité).
+
+**Vérification** : `npm test` (155 tests, dont `population.test.ts` : moyenne
+avec années manquantes, taux, seuil d'un million, rampe de couleur), et contrôle
+dans le navigateur : morts par million 2013–2017 (Irak 1 297, Afghanistan 818,
+Syrie 683, monde 22) ; indice base 100 Irak, France, Nigeria 2010–2017 ;
+attentats-suicides Irak 1 874, Nigeria 389, France 6 ; points de l'Irak colorés
+par type d'attaque.

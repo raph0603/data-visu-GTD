@@ -33,6 +33,13 @@ Ni le CSV (`data/raw/`) ni les fichiers générés (`public/data/`) ne sont comm
 
 Sans fichiers générés, `npm run dev` affiche « Données introuvables » avec la commande à lancer, et `contracts.data.test.ts` est sauté avec son motif.
 
+4. **Population (optionnel, déjà commitée)** : les taux par million d'habitants de la carte lisent `src/modules/map/population.json` (Banque mondiale, SP.POP.TOTL, CC BY 4.0). Pour la régénérer (D21) :
+
+   ```bash
+   curl -L "https://api.worldbank.org/v2/country/all/indicator/SP.POP.TOTL?format=json&per_page=20000&date=1970:2017" -o data/raw/population/wb_population_SP.POP.TOTL_1970-2017.json
+   .venv/Scripts/python preprocess/population.py
+   ```
+
 ## Commandes
 
 ```bash
