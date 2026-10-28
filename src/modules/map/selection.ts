@@ -2,42 +2,49 @@ import type { AppState, EntityRef } from '../../core/state';
 import type { Store } from '../../core/store';
 
 /**
- * The compared countries live in AppState.pinned (dim "country"), so that the leaderboard and the URL
- * share them. Six at most: one categorical colour each, never a generated seventh.
+ * The selected countries live in AppState.pinned (dim "country"), in the order they were added; the
+ * last one added is also AppState.focus, the country the atlas follows. Four at most: one identity
+ * colour each among the non-blue colours of the palette (blue carries magnitude), and four columns
+ * still fit side by side in the panel (D20).
  */
-export const MAX_SELECTION = 6;
+export const MAX_SELECTION = 4;
+
+export type Level = 'world' | 'country' | 'incident';
+
+/** World: no selection. Country: one to four selected countries. Incident: a sheet is open. */
+export function levelOf(state: AppState): Level {
+  if (state.incident !== null) return 'incident';
+  return selectedCountries(state).length > 0 ? 'country' : 'world';
+}
 
 export function selectedCountries(state: AppState): string[] {
-  return state.pinned.filter((ref) => ref.dim === 'country').map((ref) => ref.id).slice(0, MAX_SELECTION);
+  return state.pinned.filter((r) => r.dim === 'country').map((r) => r.id).slice(0, MAX_SELECTION);
 }
 
-export function isSelected(state: AppState, iso3: string): boolean {
-  return selectedCountries(state).includes(iso3);
-}
-
-/**
- * Adds or removes a country. An added country becomes the focus (read by the atlas); removing the
- * focused one moves the focus to the last remaining country. Returns false when the selection is full.
- */
+/** Adds or removes a country. Returns false when the selection is already full. */
 export function toggleCountry(store: Store<AppState>, iso3: string): boolean {
-  const state = store.get();
-  const others = state.pinned.filter((ref) => ref.dim !== 'country');
-  const current = selectedCountries(state);
+  const current = selectedCountries(store.get());
   if (current.includes(iso3)) {
-    const kept = current.filter((id) => id !== iso3);
-    const last = kept[kept.length - 1];
-    const focus = state.focus?.dim === 'country' && state.focus.id === iso3 ? (last === undefined ? null : ref(last)) : state.focus;
-    store.set({ pinned: [...others, ...kept.map(ref)], focus });
+    setSelection(store, current.filter((id) => id !== iso3));
     return true;
   }
   if (current.length >= MAX_SELECTION) return false;
-  store.set({ pinned: [...others, ...current.map(ref), ref(iso3)], focus: ref(iso3) });
+  setSelection(store, [...current, iso3]);
   return true;
 }
 
+/** Empties the selection (and closes the incident sheet). */
 export function clearCountries(store: Store<AppState>): void {
-  const state = store.get();
-  store.set({ pinned: state.pinned.filter((r) => r.dim !== 'country'), focus: state.focus?.dim === 'country' ? null : state.focus });
+  setSelection(store, []);
+}
+
+function setSelection(store: Store<AppState>, iso3s: readonly string[]): void {
+  const last = iso3s[iso3s.length - 1];
+  store.set((s) => ({
+    pinned: [...s.pinned.filter((r) => r.dim !== 'country'), ...iso3s.map(ref)],
+    focus: last === undefined ? (s.focus?.dim === 'country' ? null : s.focus) : ref(last),
+    incident: iso3s.length === 0 ? null : s.incident,
+  }));
 }
 
 function ref(iso3: string): EntityRef {
@@ -45,8 +52,8 @@ function ref(iso3: string): EntityRef {
 }
 
 /**
- * Colour slots that follow the country, not its position: removing the second country does not
- * repaint the third. A newly selected country takes the lowest free slot.
+ * Colour slots that follow the country, not its position: removing the first country does not
+ * repaint the others. A newly selected country takes the lowest free slot.
  */
 export class SlotKeeper {
   private readonly slots = new Map<string, number>();

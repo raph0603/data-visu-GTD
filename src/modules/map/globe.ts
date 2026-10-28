@@ -1,0 +1,1339 @@
+import { geoArea, geoCentroid, geoContains, geoDistance, geoGraticule10, geoPath, interpolateRgb, quadtree, timer, type GeoPath, type GeoProjection, type GeoSphere, type Quadtree, type Timer } from 'd3';
+import type { Feature, FeatureCollection, LineString, MultiPolygon, Polygon } from 'geojson';
+import { mesh } from 'topojson-client';
+import type { CountryAtlas } from '../../core/geo';
+import { categoryLabel } from '../../core/labels';
+import { baseRadius, clampCamera, easeOut, fitCamera, flight, frontProjection, kmPerPixel, MAX_K, onFrontSide, PointProjector, projectionFor, rotateBy, viewRadius, zoomAround, type Camera, type Flight, type Viewport } from './camera';
+import { formatRange, formatShare, formatTick, formatWithUnit, ordinal, plural } from './format';
+import type { Env, Frame } from './frame';
+import { HexGrid, type HexBin } from './hexbin';
+import { cellsOf, deadliestFirst, incidentCategory, incidentDate, type Cells, type IncidentFiles, type IncidentSet } from './incidents';
+import { emptyTotals, isNamedGroup, knownShareOf, metricOf, type Totals } from './model';
+import { MAX_SELECTION, selectedCountries as selectedOf, toggleCountry, type Level } from './selection';
+import type { Sel, TooltipLine } from './ui';
+
+const SPHERE: GeoSphere = { type: 'Sphere' };
+const GRATICULE = geoGraticule10();
+const OCEAN_LIGHT = '#f1f5f8';
+const OCEAN_DEEP = '#dce5ec';
+const LIMB = 'rgba(40, 60, 80, 0.22)';
+const BORDER = 'rgba(255, 255, 255, 0.9)';
+/** Land of the countries that are not explored, at the country level: the context recedes. */
+const RECEDED_LAND = '#ecebe6';
+const EXPLORED_LAND = '#fbfbf9';
+/** Land under the incident layer: neutral, so the only colour on the globe is the density. */
+const LAND = '#e8e7e2';
+/** Points of the countries that are not selected (selected ones wear their identity colour). */
+const POINT_BASE = '#2f6496';
+const INK = '#1d1d1b';
+const FONT = 'system-ui, -apple-system, "Segoe UI", sans-serif';
+
+/** Degrees per second of the idle rotation. */
+const SPIN_SPEED = 3;
+const COLOR_TWEEN_MS = 320;
+const HEX_RADIUS = 9;
+/** Above this many incidents in view, points are binned into hexagons (when bins stay large). */
+const POINTS_MAX = 1500;
+const LINKS_SHOWN = 8;
+const WORLD_LABELS = 5;
+const CITY_LABELS = 7;
+
+/** A drawn shape and its bounding circle on the sphere, to skip what cannot be on screen. */
+interface Shape {
+  readonly iso3: string | null;
+  readonly feature: Feature<Polygon | MultiPolygon>;
+  readonly centre: [number, number];
+  readonly radius: number;
+}
+
+/** One border line of the mesh, with its bounding circle like a shape. */
+interface Border {
+  readonly line: LineString;
+  readonly centre: [number, number];
+  readonly radius: number;
+}
+
+interface Layer {
+  readonly shapes: readonly Shape[];
+  /** The border mesh split into lines, so that a zoomed view only projects the borders in view. */
+  readonly borders: readonly Border[];
+  /** Shapes outside the border mesh (small countries added to the simplified layer): stroked one by one. */
+  readonly outlined: readonly Shape[];
+}
+
+interface Place {
+  readonly shape: Shape;
+  /** Largest polygon: framing and labels ignore overseas parts. */
+  readonly main: Feature<Polygon>;
+  readonly anchor: [number, number];
+}
+
+interface Link {
+  readonly to: string;
+  readonly weight: number;
+  readonly groups: readonly string[];
+}
+
+type Fill = string | null;
+type Mode = 'choropleth' | 'hex' | 'points';
+
+/** Incidents drawn one by one (points mode), projected at each frame. */
+interface Placed {
+  n: number;
+  xs: Float64Array;
+  ys: Float64Array;
+  rs: Float64Array;
+  sets: IncidentSet[];
+  index: Uint32Array;
+}
+
+export interface Globe {
+  update(frame: Frame): void;
+  /** Country hovered elsewhere (panel): outlined on the globe. */
+  highlight(iso3: string | null): void;
+  destroy(): void;
+}
+
+export interface GlobeAtlases {
+  readonly detail: CountryAtlas;
+  /** Simplified geometry drawn while the globe moves; null when it could not be loaded. */
+  readonly coarse: CountryAtlas | null;
+}
+
+export function createGlobe(parent: Sel<HTMLDivElement>, env: Env, atlases: GlobeAtlases, files: IncidentFiles): Globe {
+  const { store, palette, model, tooltip } = env;
+  const doc = parent.node()?.ownerDocument ?? document;
+  const win = doc.defaultView;
+  const reducedMotion = win?.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+
+  // ------------------------------------------------------------------ DOM
+  const canvas = parent
+    .append('canvas')
+    .attr('class', 'cv-globe-canvas')
+    .attr('tabindex', '0')
+    .attr('role', 'img')
+    .attr('aria-describedby', 'cv-globe-keys');
+  parent
+    .append('p')
+    .attr('id', 'cv-globe-keys')
+    .attr('class', 'cv-sr-only')
+    .text('Flèches : tourner le globe. Plus et moins : zoomer. Entrée : sélectionner le pays au centre. Échap : fermer la fiche ou vider la sélection.');
+  const layerSwitch = parent.append('div').attr('class', 'cv-layer').attr('role', 'radiogroup').attr('aria-label', 'Représentation du globe');
+  const layerButtons = layerSwitch
+    .selectAll('button')
+    .data([
+      { id: 'events', label: 'Attentats', title: 'Chaque attentat à sa position, regroupés par zone puis un par un en zoomant' },
+      { id: 'countries', label: 'Pays', title: 'Une couleur par pays selon la mesure choisie' },
+    ])
+    .join('button')
+    .attr('type', 'button')
+    .attr('role', 'radio')
+    .attr('title', (d) => d.title)
+    .text((d) => d.label)
+    .on('click', (_event: MouseEvent, d) => store.set((s) => ({ ext: { ...s.ext, 'map.layer': d.id } })));
+  const hint = parent.append('p').attr('class', 'cv-hint');
+  const status = parent.append('p').attr('class', 'cv-globe-status').attr('role', 'status');
+  const controls = parent.append('div').attr('class', 'cv-zoom').attr('role', 'group').attr('aria-label', 'Zoom');
+  const legend = parent.append('div').attr('class', 'cv-legend');
+
+  const button = (label: string, title: string, onClick: () => void) =>
+    controls.append('button').attr('type', 'button').attr('aria-label', title).attr('title', title).text(label).on('click', onClick);
+  button('+', 'Zoomer', () => zoomBy(1.6));
+  button('−', 'Dézoomer', () => zoomBy(1 / 1.6));
+  button('◎', 'Voir le monde entier', () => flyTo(worldCamera()));
+
+  // ------------------------------------------------------------------ geometry
+  const detail = buildLayer(atlases.detail);
+  const coarse = atlases.coarse === null ? null : hybridLayer(atlases.coarse, detail);
+  const places = new Map<string, Place>();
+  for (const shape of detail.shapes) {
+    if (shape.iso3 === null) continue;
+    const main = largestPolygon(shape.feature);
+    places.set(shape.iso3, { shape, main, anchor: geoCentroid(main) as [number, number] });
+  }
+  // Smallest shapes first, so that an enclave (Lesotho) wins over the country around it.
+  const pickable = detail.shapes.filter((s) => s.iso3 !== null).sort((a, b) => a.radius - b.radius);
+  const grid = new HexGrid(HEX_RADIUS);
+  const hatch = createHatch(doc, palette.noDataStroke);
+
+  // ------------------------------------------------------------------ state
+  let viewport: Viewport = { width: 0, height: 0 };
+  let dpr = 1;
+  let camera: Camera = { lambda: 20, phi: 18, k: 1 };
+  let frame: Frame | null = null;
+  let targetKey: string | null = null;
+  let active: { flight: Flight; start: number } | null = null;
+  let loop: Timer | null = null;
+  let lastTick = 0;
+  let dirty = false;
+  let moving = false;
+  let dragging = false;
+  let wheeling: number | null = null;
+  let spinStopped = reducedMotion;
+  let pointerInside = false;
+  let hovered: string | null = null;
+  let external: string | null = null;
+  let mode: Mode = 'choropleth';
+
+  let targetFills = new Map<string, Fill>();
+  let fromFills = new Map<string, Fill>();
+  let tweenStart = -Infinity;
+
+  let placed: Placed = { n: 0, xs: new Float64Array(0), ys: new Float64Array(0), rs: new Float64Array(0), sets: [], index: new Uint32Array(0) };
+  /** Position cells of the incident layer that fall in view, projected at each frame (hexagon mode). */
+  let inView = { n: 0, total: 0, xs: new Float64Array(0), ys: new Float64Array(0), idx: new Uint32Array(0) };
+  let cells: Cells | null = null;
+  let lastSelection: readonly string[] = [];
+  let lastClick: { iso3: string; at: number } | null = null;
+  let flash: number | null = null;
+  let bins: Map<number, HexBin> = new Map();
+  let binValues = new Map<number, Totals>();
+  let points: Quadtree<number> | null = null;
+  let hexDomain = 0;
+  let linkIndex: { byCountry: Map<number, Map<number, number>>; byGroup: Map<number, Map<number, number>> } | null = null;
+  let legendKey = '';
+  const hinted = new Set<Level>();
+
+  const now = () => win?.performance?.now() ?? Date.now();
+
+  // ------------------------------------------------------------------ sizing
+  const resize = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(() => measure());
+  const parentNode = parent.node();
+  if (resize !== null && parentNode !== null) resize.observe(parentNode);
+
+  function measure(): void {
+    const element = canvas.node();
+    const box = parentNode?.getBoundingClientRect();
+    if (element == null || box === undefined || box.width === 0 || box.height === 0) return;
+    const first = viewport.width === 0;
+    viewport = { width: box.width, height: box.height };
+    dpr = win?.devicePixelRatio ?? 1;
+    element.width = Math.round(box.width * dpr);
+    element.height = Math.round(box.height * dpr);
+    element.style.width = `${box.width}px`;
+    element.style.height = `${box.height}px`;
+    // The first size decides the framing of a deep link (#f=country:IRQ): no flight to it.
+    if (first && frame !== null) {
+      targetKey = null;
+      syncCamera(frame, true);
+    }
+    requestDraw();
+  }
+
+  // ------------------------------------------------------------------ animation loop
+  function requestDraw(): void {
+    dirty = true;
+    if (loop === null) {
+      lastTick = now();
+      loop = timer(tick);
+    }
+  }
+
+  function spinning(): boolean {
+    return !spinStopped && !pointerInside && frame?.selected.length === 0 && active === null && !dragging;
+  }
+
+  function tick(): void {
+    const t = now();
+    const dt = Math.min(0.1, (t - lastTick) / 1000);
+    lastTick = t;
+    let animating = false;
+    if (active !== null) {
+      const u = Math.min(1, (t - active.start) / active.flight.duration);
+      camera = active.flight.at(easeOut(u));
+      if (u >= 1) active = null;
+      else animating = true;
+      dirty = true;
+    }
+    if (spinning()) {
+      camera = clampCamera({ ...camera, lambda: camera.lambda + SPIN_SPEED * dt });
+      animating = true;
+      dirty = true;
+    }
+    if (t - tweenStart < COLOR_TWEEN_MS) {
+      animating = true;
+      dirty = true;
+    }
+    const wasMoving = moving;
+    moving = active !== null || spinning() || dragging || wheeling !== null;
+    // When the motion stops, one more frame swaps the simplified geometry for the detailed one.
+    if (dirty || (wasMoving && !moving)) {
+      dirty = false;
+      draw();
+    }
+    if (!animating && !dragging && wheeling === null && loop !== null) {
+      loop.stop();
+      loop = null;
+    }
+  }
+
+  function flyTo(target: Camera, immediate = reducedMotion): void {
+    if (immediate || viewport.width === 0) {
+      active = null;
+      camera = target;
+    } else {
+      active = { flight: flight(camera, target), start: now() };
+    }
+    requestDraw();
+  }
+
+  function worldCamera(): Camera {
+    return { lambda: camera.lambda, phi: Math.abs(camera.phi) > 35 ? 18 : camera.phi, k: 1 };
+  }
+
+  /**
+   * Camera framing some countries: all of them when they fit in one view (pairwise less than about
+   * 100° apart), else the last one.
+   */
+  function selectionCamera(iso3s: readonly string[]): Camera | null {
+    const mains = iso3s.map((iso3) => places.get(iso3)).filter((p): p is Place => p !== undefined);
+    const last = mains[mains.length - 1];
+    if (last === undefined || viewport.width === 0) return null;
+    const together = mains.every((a) => mains.every((b) => geoDistance(a.anchor, b.anchor) < 1.7));
+    if (together && mains.length > 1) {
+      const all: FeatureCollection<Polygon> = { type: 'FeatureCollection', features: mains.map((p) => p.main) };
+      return fitCamera(all, viewport);
+    }
+    return fitCamera(last.main, viewport);
+  }
+
+  /** True when the anchor of the country is on the visible side and inside the view. */
+  function visible(iso3: string): boolean {
+    const place = places.get(iso3);
+    if (place === undefined || geoDistance([camera.lambda, camera.phi], place.anchor) > Math.PI / 2 - 0.15) return false;
+    const p = projectionFor(camera, viewport, false)(place.anchor);
+    return p !== null && p[0] > viewport.width * 0.08 && p[0] < viewport.width * 0.92 && p[1] > viewport.height * 0.08 && p[1] < viewport.height * 0.92;
+  }
+
+  /**
+   * The camera moves only when it has to: to an opened incident, or to a newly selected country that
+   * is out of view. Selecting a visible country, removing one or clearing the selection keeps the view.
+   */
+  function syncCamera(f: Frame, immediate: boolean): void {
+    const key = `${f.selected.join(',')}|${f.state.incident ?? ''}`;
+    if (key === targetKey || viewport.width === 0) return;
+    let target: Camera | null = null;
+    if (f.state.incident !== null) {
+      const found = files.find(f.state.incident);
+      if (found === undefined) return; // its file is still loading: next update retries
+      const c = found.set.file.columns;
+      const base = selectionCamera([found.set.iso3]);
+      target = clampCamera({ lambda: c.longitude[found.index] ?? 0, phi: c.latitude[found.index] ?? 0, k: Math.min(MAX_K, Math.max(camera.k, (base?.k ?? 8) * 6, 40)) });
+    } else {
+      const added = f.selected.filter((iso3) => !lastSelection.includes(iso3));
+      if (added.length > 0 && !added.every(visible)) target = selectionCamera(f.selected);
+    }
+    targetKey = key;
+    lastSelection = f.selected;
+    if (target === null) return;
+    spinStopped = true;
+    flyTo(target, immediate);
+  }
+
+  // ------------------------------------------------------------------ fills
+  function computeFills(f: Frame): Map<string, Fill> {
+    const max = f.domainMax;
+    // 48 steps of the ramp: below what the eye separates, and few distinct colours to fill.
+    const t = (v: number) => (max > 0 ? Math.round(48 * Math.min(1, Math.log1p(v) / Math.log1p(max))) / 48 : 0);
+    const fills = new Map<string, Fill>();
+    if (f.layer === 'events') {
+      for (const iso3 of env.drawable) fills.set(iso3, LAND);
+      return fills;
+    }
+    const recede = f.selected.length > 0;
+    for (const iso3 of env.drawable) {
+      if (recede && f.colors.has(iso3)) {
+        fills.set(iso3, EXPLORED_LAND);
+        continue;
+      }
+      const v = f.values.get(iso3) ?? Number.NaN;
+      let fill: Fill;
+      if (Number.isNaN(v)) {
+        const c = model.countryOf(iso3);
+        fill = c >= 0 && f.covered && model.totals(f.table, [c], f.state.range).incidents === 0 ? palette.zero : null;
+      } else {
+        fill = v === 0 ? palette.zero : palette.sequential(t(v));
+      }
+      fills.set(iso3, fill !== null && recede ? interpolateRgb(fill, RECEDED_LAND)(0.84) : fill);
+    }
+    return fills;
+  }
+
+  function fillAt(iso3: string, u: number): Fill {
+    const to = targetFills.get(iso3) ?? null;
+    if (u >= 1) return to;
+    const from = fromFills.get(iso3) ?? null;
+    return from === null || to === null || from === to ? to : interpolateRgb(from, to)(u);
+  }
+
+  // ------------------------------------------------------------------ drawing
+  /**
+   * Two layers: the base (ocean, countries, borders, explored countries, incidents, labels) is kept
+   * in an offscreen canvas while the camera and the data stay the same; the hover layer (outline,
+   * links) is drawn over it, so hovering never redraws two hundred countries.
+   */
+  const baseCanvas = doc.createElement('canvas');
+  let baseKey = '';
+  let baseVersion = 0;
+
+  function draw(): void {
+    const element = canvas.node();
+    const context = element?.getContext?.('2d') ?? null;
+    if (element == null || context === null || viewport.width === 0 || frame === null) return;
+    const f = frame;
+    const layer = layerFor();
+    const tweening = now() - tweenStart < COLOR_TWEEN_MS;
+    const key = `${camera.lambda}|${camera.phi}|${camera.k}|${element.width}x${element.height}|${baseVersion}|${layer === detail ? 'detail' : 'coarse'}`;
+    if (tweening || key !== baseKey) {
+      if (baseCanvas.width !== element.width || baseCanvas.height !== element.height) {
+        baseCanvas.width = element.width;
+        baseCanvas.height = element.height;
+      }
+      const base = baseCanvas.getContext?.('2d') ?? null;
+      if (base === null) return;
+      renderBase(base, f, layer);
+      baseKey = tweening ? '' : key;
+    }
+    context.setTransform(1, 0, 0, 1, 0, 0);
+    context.clearRect(0, 0, element.width, element.height);
+    context.drawImage(baseCanvas, 0, 0);
+    context.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    const highlighted = hovered ?? external;
+    if (highlighted !== null) {
+      const projection = projectionFor(camera, viewport);
+      const path = geoPath(projection, context);
+      if (f.selected.length === 0) drawLinks(context, path, projection, [camera.lambda, camera.phi], f, highlighted);
+      const place = places.get(highlighted);
+      if (place !== undefined && !f.colors.has(highlighted)) {
+        context.beginPath();
+        path(place.shape.feature);
+        context.strokeStyle = INK;
+        context.lineWidth = 1.5;
+        context.stroke();
+      }
+    }
+    updateLegend(f);
+  }
+
+  /** The simplified geometry at a low zoom or while moving across a region, the detailed one otherwise. */
+  function layerFor(): Layer {
+    if (coarse === null) return detail;
+    return camera.k < 1.6 || (moving && camera.k < 4) ? coarse : detail;
+  }
+
+  function renderBase(context: CanvasRenderingContext2D, f: Frame, layer: Layer): void {
+    const { width, height } = viewport;
+    context.setTransform(dpr, 0, 0, dpr, 0, 0);
+    context.clearRect(0, 0, width, height);
+    const projection = projectionFor(camera, viewport);
+    const path = geoPath(projection, context);
+    const fast = geoPath(frontProjection(camera, viewport), context);
+    const trace = (shape: Shape) => (onFrontSide(camera, shape.centre, shape.radius) ? fast : path)(shape.feature);
+    const radius = baseRadius(viewport) * camera.k;
+    const cx = width / 2;
+    const cy = height / 2;
+    const centre: [number, number] = [camera.lambda, camera.phi];
+    const reach = viewRadius(camera, viewport) + 0.03;
+
+    // Ocean, lit from the upper left, with a soft shadow that sets the globe on the page.
+    context.save();
+    context.beginPath();
+    path(SPHERE);
+    const ocean = context.createRadialGradient(cx - radius * 0.35, cy - radius * 0.4, radius * 0.05, cx, cy, radius);
+    ocean.addColorStop(0, OCEAN_LIGHT);
+    ocean.addColorStop(1, OCEAN_DEEP);
+    context.fillStyle = ocean;
+    if (camera.k < 1.6) {
+      context.shadowColor = 'rgba(31, 52, 74, 0.16)';
+      context.shadowBlur = 30;
+      context.shadowOffsetY = 10;
+    }
+    context.fill();
+    context.restore();
+
+    if (camera.k < 10) {
+      context.beginPath();
+      path(GRATICULE);
+      context.strokeStyle = 'rgba(60, 90, 120, 0.09)';
+      context.lineWidth = 0.6;
+      context.stroke();
+    }
+
+    const u = easeOut(Math.min(1, (now() - tweenStart) / COLOR_TWEEN_MS));
+    const recede = f.layer === 'countries' && f.selected.length > 0;
+    const blank = f.layer === 'events' ? LAND : (hatch ?? palette.zero);
+    // One fill per colour rather than per country: the colours are quantized (computeFills), so a
+    // frame fills a few dozen paths instead of two hundred.
+    const byFill = new Map<string, Shape[]>();
+    for (const shape of layer.shapes) {
+      if (geoDistance(centre, shape.centre) - shape.radius > reach) continue;
+      const key = (shape.iso3 === null ? null : fillAt(shape.iso3, u)) ?? '';
+      const group = byFill.get(key);
+      if (group === undefined) byFill.set(key, [shape]);
+      else group.push(shape);
+    }
+    for (const [fill, shapes] of byFill) {
+      context.beginPath();
+      for (const shape of shapes) trace(shape);
+      context.globalAlpha = fill === '' && recede ? 0.4 : 1;
+      context.fillStyle = fill === '' ? blank : fill;
+      context.fill();
+    }
+    context.globalAlpha = 1;
+    context.beginPath();
+    for (const border of layer.borders) {
+      if (geoDistance(centre, border.centre) - border.radius > reach) continue;
+      (onFrontSide(camera, border.centre, border.radius) ? fast : path)(border.line);
+    }
+    for (const shape of layer.outlined) if (geoDistance(centre, shape.centre) - shape.radius <= reach) trace(shape);
+    context.strokeStyle = BORDER;
+    context.lineWidth = camera.k > 4 ? 1 : 0.6;
+    context.stroke();
+
+    // Explored countries: identity outline on a light halo, so it holds over any fill.
+    for (const iso3 of f.selected) {
+      const place = places.get(iso3);
+      if (place === undefined) continue;
+      context.beginPath();
+      path(place.shape.feature);
+      context.strokeStyle = 'rgba(255, 255, 255, 0.95)';
+      context.lineWidth = 4.5;
+      context.stroke();
+      context.strokeStyle = f.colors.get(iso3) ?? INK;
+      context.lineWidth = 2;
+      context.stroke();
+    }
+
+    drawIncidents(context, f, centre, reach);
+
+    drawLabels(context, projection, centre, f);
+
+    context.beginPath();
+    path(SPHERE);
+    context.strokeStyle = LIMB;
+    context.lineWidth = 1;
+    context.stroke();
+  }
+
+  function drawLinks(context: CanvasRenderingContext2D, path: GeoPath, projection: GeoProjection, centre: [number, number], f: Frame, iso3: string): void {
+    const from = places.get(iso3);
+    const links = linksOf(f, iso3);
+    if (from === undefined || links.length === 0) return;
+    const max = Math.max(1, ...links.map((l) => l.weight));
+    context.lineCap = 'round';
+    for (const link of links) {
+      const to = places.get(link.to);
+      if (to === undefined) continue;
+      const line: LineString = { type: 'LineString', coordinates: [from.anchor, to.anchor] };
+      context.beginPath();
+      path(line);
+      context.strokeStyle = 'rgba(29, 29, 27, 0.55)';
+      context.lineWidth = 1 + 2.6 * Math.sqrt(link.weight / max);
+      context.stroke();
+      if (geoDistance(centre, to.anchor) < Math.PI / 2) {
+        const p = projection(to.anchor);
+        if (p !== null) {
+          context.beginPath();
+          context.arc(p[0], p[1], 2.6, 0, Math.PI * 2);
+          context.fillStyle = INK;
+          context.fill();
+        }
+      }
+    }
+    context.lineCap = 'butt';
+  }
+
+  /** Countries whose incidents are drawn: all of them on the incident layer, the selection on the country layer. */
+  function sources(f: Frame): readonly string[] {
+    return f.layer === 'events' ? env.drawable : f.selected;
+  }
+
+  function drawIncidents(context: CanvasRenderingContext2D, f: Frame, centre: [number, number], reach: number): void {
+    points = null;
+    placed.n = 0;
+    inView.n = 0;
+    const from = sources(f);
+    if (from.length === 0) {
+      mode = 'choropleth';
+      cells = null;
+      return;
+    }
+    cells = cellsOf(files, from, f.filters, f.state.range);
+    projectCells(cells);
+    const hexKm = HEX_RADIUS * Math.sqrt(3) * kmPerPixel(camera, viewport);
+    // Hysteresis, so a zoom that hovers around the threshold does not flicker between the two.
+    const toHex = mode === 'hex' ? inView.total > POINTS_MAX * 0.8 && hexKm > 4 : inView.total > POINTS_MAX && hexKm > 6;
+    mode = toHex ? 'hex' : 'points';
+    if (mode === 'hex') drawHexes(context, f, cells);
+    else {
+      projectPoints(f, from, centre, reach);
+      drawPoints(context, f);
+    }
+  }
+
+  function projectCells(c: Cells): void {
+    if (inView.xs.length < c.n) inView = { n: 0, total: 0, xs: new Float64Array(c.n), ys: new Float64Array(c.n), idx: new Uint32Array(c.n) };
+    const projector = new PointProjector(camera, viewport);
+    const out: [number, number] = [0, 0];
+    let m = 0;
+    let total = 0;
+    for (let i = 0; i < c.n; i++) {
+      if (!projector.project(c.cosLat[i] ?? 0, c.sinLat[i] ?? 0, c.cosLon[i] ?? 0, c.sinLon[i] ?? 0, out)) continue;
+      if (out[0] < -HEX_RADIUS || out[1] < -HEX_RADIUS || out[0] > viewport.width + HEX_RADIUS || out[1] > viewport.height + HEX_RADIUS) continue;
+      inView.xs[m] = out[0];
+      inView.ys[m] = out[1];
+      inView.idx[m] = i;
+      total += c.incidents[i] ?? 0;
+      m++;
+    }
+    inView.n = m;
+    inView.total = total;
+  }
+
+  /** The incidents themselves, for the countries that reach the view, deadliest first in each country. */
+  function projectPoints(f: Frame, from: readonly string[], centre: [number, number], reach: number): void {
+    const projector = new PointProjector(camera, viewport);
+    const out: [number, number] = [0, 0];
+    const margin = 24;
+    let m = 0;
+    for (const iso3 of from) {
+      const set = files.get(iso3);
+      const place = places.get(iso3);
+      if (set === undefined || (place !== undefined && geoDistance(centre, place.shape.centre) - place.shape.radius > reach)) continue;
+      const killed = set.file.columns.killed;
+      const order = deadliestFirst(files, iso3, f.filters, f.state.range);
+      if (placed.xs.length < m + order.length) {
+        const size = Math.max(2 * placed.xs.length, m + order.length);
+        const grow = <T extends Float64Array | Uint32Array>(a: T, make: (n: number) => T): T => {
+          const b = make(size);
+          b.set(a.subarray(0, m));
+          return b;
+        };
+        placed = {
+          n: m,
+          xs: grow(placed.xs, (n) => new Float64Array(n)),
+          ys: grow(placed.ys, (n) => new Float64Array(n)),
+          rs: grow(placed.rs, (n) => new Float64Array(n)),
+          sets: placed.sets,
+          index: grow(placed.index, (n) => new Uint32Array(n)),
+        };
+      }
+      for (const i of order) {
+        if (!projector.project(set.cosLat[i] ?? 0, set.sinLat[i] ?? 0, set.cosLon[i] ?? 0, set.sinLon[i] ?? 0, out)) continue;
+        if (out[0] < -margin || out[1] < -margin || out[0] > viewport.width + margin || out[1] > viewport.height + margin) continue;
+        placed.xs[m] = out[0];
+        placed.ys[m] = out[1];
+        placed.rs[m] = pointRadius(killed[i] ?? null);
+        placed.sets[m] = set;
+        placed.index[m] = i;
+        m++;
+      }
+    }
+    placed.n = m;
+  }
+
+  function drawHexes(context: CanvasRenderingContext2D, f: Frame, c: Cells): void {
+    bins = grid.bin(inView.xs, inView.ys, inView.n);
+    binValues = new Map();
+    let max = 0;
+    for (const bin of bins.values()) {
+      const totals = emptyTotals();
+      for (const n of bin.items) {
+        const i = inView.idx[n] ?? 0;
+        totals.incidents += c.incidents[i] ?? 0;
+        totals.killedSum += c.killedSum[i] ?? 0;
+        totals.killedKnown += c.killedKnown[i] ?? 0;
+        totals.woundedSum += c.woundedSum[i] ?? 0;
+        totals.woundedKnown += c.woundedKnown[i] ?? 0;
+      }
+      binValues.set(bin.key, totals);
+      const v = metricOf(totals, f.metric, true);
+      if (v > max && (f.metric.kind !== 'mean' || totals.incidents >= 5)) max = v;
+    }
+    hexDomain = max;
+    const t = (v: number) => (max > 0 ? Math.min(1, Math.log1p(v) / Math.log1p(max)) : 0);
+    for (const bin of bins.values()) {
+      const v = metricOf(binValues.get(bin.key) ?? emptyTotals(), f.metric, true);
+      context.beginPath();
+      grid.trace(context, bin.x, bin.y, HEX_RADIUS - 0.8);
+      context.fillStyle = Number.isNaN(v) ? (hatch ?? palette.zero) : v === 0 ? palette.zero : palette.sequential(t(v));
+      context.fill();
+    }
+  }
+
+  function drawPoints(context: CanvasRenderingContext2D, f: Frame): void {
+    const open = f.state.incident;
+    let ring: [number, number, number] | null = null;
+    context.lineWidth = 0.8;
+    context.strokeStyle = 'rgba(255, 255, 255, 0.92)';
+    for (let n = 0; n < placed.n; n++) {
+      const set = placed.sets[n];
+      if (set === undefined) continue;
+      const x = placed.xs[n] ?? 0;
+      const y = placed.ys[n] ?? 0;
+      const r = placed.rs[n] ?? 2;
+      context.beginPath();
+      context.arc(x, y, r, 0, Math.PI * 2);
+      context.globalAlpha = 0.74;
+      context.fillStyle = f.colors.get(set.iso3) ?? POINT_BASE;
+      context.fill();
+      context.globalAlpha = 1;
+      context.stroke();
+      if (open !== null && set.file.columns.eventId[placed.index[n] ?? 0] === open) ring = [x, y, r];
+    }
+    if (ring !== null) {
+      const [x, y, r] = ring;
+      context.beginPath();
+      context.arc(x, y, r + 5, 0, Math.PI * 2);
+      context.strokeStyle = 'rgba(255, 255, 255, 0.95)';
+      context.lineWidth = 5;
+      context.stroke();
+      context.strokeStyle = INK;
+      context.lineWidth = 2;
+      context.stroke();
+    }
+  }
+
+  function drawLabels(context: CanvasRenderingContext2D, projection: GeoProjection, centre: [number, number], f: Frame): void {
+    const reach = viewRadius(camera, viewport) * 0.92;
+    // Selected countries are always named; on the country layer without selection, the five most
+    // affected countries in view are.
+    const wanted =
+      f.selected.length > 0 || f.layer === 'events'
+        ? f.selected
+        : f.ranking.ordered
+            .filter((iso3) => {
+              const place = places.get(iso3);
+              return place !== undefined && geoDistance(centre, place.anchor) < Math.min(reach, 1.25);
+            })
+            .slice(0, WORLD_LABELS);
+    const taken: [number, number, number, number][] = [];
+    context.textAlign = 'center';
+    context.textBaseline = 'middle';
+    context.lineJoin = 'round';
+    const label = (text: string, x: number, y: number, weight: number, size: number, color: string): void => {
+      context.font = `${weight} ${size}px ${FONT}`;
+      const w = context.measureText(text).width + 8;
+      const h = size + 4;
+      const box: [number, number, number, number] = [x - w / 2, y - h / 2, x + w / 2, y + h / 2];
+      if (taken.some((b) => box[0] < b[2] && box[2] > b[0] && box[1] < b[3] && box[3] > b[1])) return;
+      taken.push(box);
+      context.lineWidth = 3.5;
+      context.strokeStyle = 'rgba(255, 255, 255, 0.92)';
+      context.strokeText(text, x, y);
+      context.fillStyle = color;
+      context.fillText(text, x, y);
+    };
+    for (const iso3 of wanted) {
+      const place = places.get(iso3);
+      if (place === undefined || geoDistance(centre, place.anchor) > reach) continue;
+      const p = projection(place.anchor);
+      if (p === null) continue;
+      label(env.name(iso3), p[0], p[1], 600, f.selected.length > 0 ? 14 : 12, INK);
+    }
+    // There is no base map under the incidents: the most affected cities in view are the landmarks,
+    // placed on their busiest position (a name shared by two countries is not averaged).
+    const c = cells;
+    if (c === null || inView.n === 0) return;
+    const cities = new Map<string, { x: number; y: number; n: number; best: number }>();
+    for (let m = 0; m < inView.n; m++) {
+      const i = inView.idx[m] ?? 0;
+      const city = c.city[i];
+      if (city == null || city === '' || city === 'Unknown') continue;
+      const weight = c.incidents[i] ?? 0;
+      const entry = cities.get(city);
+      if (entry === undefined) cities.set(city, { x: inView.xs[m] ?? 0, y: inView.ys[m] ?? 0, n: weight, best: weight });
+      else {
+        entry.n += weight;
+        if (weight > entry.best) {
+          entry.best = weight;
+          entry.x = inView.xs[m] ?? 0;
+          entry.y = inView.ys[m] ?? 0;
+        }
+      }
+    }
+    const top = [...cities].filter(([, city]) => city.n >= 3).sort((a, b) => b[1].n - a[1].n).slice(0, CITY_LABELS);
+    for (const [city, entry] of top) label(city, entry.x, entry.y - 13, 500, 12, '#3b3a37');
+  }
+
+  // ------------------------------------------------------------------ legend and hints
+  function updateLegend(f: Frame): void {
+    const km = Math.round(HEX_RADIUS * Math.sqrt(3) * kmPerPixel(camera, viewport));
+    const key = `${mode}|${f.layer}|${f.metric.id}|${formatRange(f.state.range)}|${mode === 'hex' ? `${hexDomain}|${km}` : f.domainMax}|${f.selected.join(',')}`;
+    if (key === legendKey) return;
+    legendKey = key;
+    legend.selectAll('*').remove();
+    if (mode === 'points') {
+      legend.append('p').attr('class', 'cv-legend-title').text('Un point par incident · taille selon les morts');
+      const sizes = legend.append('div').attr('class', 'cv-legend-row');
+      for (const killed of [0, 10, 100]) {
+        const r = pointRadius(killed);
+        sizes.append('span').attr('class', 'cv-dot').style('width', `${2 * r}px`).style('height', `${2 * r}px`);
+        sizes.append('span').text(killed === 0 ? '0 ou inconnu' : String(killed));
+      }
+      if (f.selected.length > 0) {
+        const keys = legend.append('div').attr('class', 'cv-legend-row');
+        for (const iso3 of f.selected) {
+          keys.append('span').attr('class', 'cv-swatch').style('background', f.colors.get(iso3) ?? INK);
+          keys.append('span').text(env.name(iso3));
+        }
+        if (f.layer === 'events') {
+          keys.append('span').attr('class', 'cv-swatch').style('background', POINT_BASE);
+          keys.append('span').text('autres pays');
+        }
+      }
+      return;
+    }
+    const max = mode === 'hex' ? hexDomain : f.domainMax;
+    legend
+      .append('p')
+      .attr('class', 'cv-legend-title')
+      .text(mode === 'hex' ? `${f.metric.label} par zone d’environ ${km} km · ${formatRange(f.state.range)}` : `${f.metric.label} · ${formatRange(f.state.range)}`);
+    const ramp = legend.append('div').attr('class', 'cv-ramp');
+    ramp.append('div').attr('class', 'cv-ramp-bar').style('background', `linear-gradient(to right, ${[0, 0.25, 0.5, 0.75, 1].map((s) => palette.sequential(s)).join(', ')})`);
+    const ticks = ramp.append('div').attr('class', 'cv-ramp-ticks');
+    for (const v of logTicks(max)) {
+      ticks
+        .append('span')
+        .style('left', `${(Math.log1p(v) / Math.log1p(max || 1)) * 100}%`)
+        .text(formatTick(v));
+    }
+    const keys = legend.append('div').attr('class', 'cv-legend-row');
+    keys.append('span').attr('class', 'cv-swatch').style('background', palette.zero);
+    keys.append('span').text(f.metric.kind === 'mean' ? '0 ou aucun incident' : 'zéro');
+    keys.append('span').attr('class', 'cv-swatch cv-swatch-nodata');
+    keys.append('span').text('pas de donnée');
+    if (mode === 'choropleth') {
+      legend.append('p').attr('class', 'cv-legend-note').text('Échelle logarithmique, fixe pendant la lecture.');
+    }
+  }
+
+  function updateHint(f: Frame): void {
+    const text =
+      f.level === 'incident'
+        ? 'Échap : fermer la fiche'
+        : f.level === 'country'
+          ? `Clic : ajouter ou retirer un pays (${MAX_SELECTION} au plus) · double-clic : zoomer dessus`
+          : 'Glissez pour tourner · molette pour zoomer · cliquez des pays pour les comparer';
+    hint.text(text).classed('is-hidden', hinted.has(f.level));
+  }
+
+  function markInteracted(): void {
+    spinStopped = true;
+    if (frame !== null) {
+      hinted.add(frame.level);
+      hint.classed('is-hidden', true);
+    }
+  }
+
+  // ------------------------------------------------------------------ hit testing
+  function countryAt(x: number, y: number): string | null {
+    const radius = baseRadius(viewport) * camera.k;
+    if (Math.hypot(x - viewport.width / 2, y - viewport.height / 2) > radius) return null;
+    const geo = projectionFor(camera, viewport, false).invert?.([x, y]) ?? null;
+    if (geo === null || !Number.isFinite(geo[0]) || !Number.isFinite(geo[1])) return null;
+    for (const shape of pickable) {
+      if (geoDistance(geo, shape.centre) > shape.radius + 1e-3) continue;
+      if (geoContains(shape.feature, geo)) return shape.iso3;
+    }
+    return null;
+  }
+
+  function pointAt(x: number, y: number): number | null {
+    if (mode !== 'points' || placed.n === 0) return null;
+    if (points === null) {
+      points = quadtree<number>()
+        .x((n) => placed.xs[n] ?? 0)
+        .y((n) => placed.ys[n] ?? 0)
+        .addAll(Array.from({ length: placed.n }, (_, n) => n));
+    }
+    const found = points.find(x, y, 22);
+    if (found === undefined) return null;
+    const r = placed.rs[found] ?? 2;
+    return Math.hypot((placed.xs[found] ?? 0) - x, (placed.ys[found] ?? 0) - y) <= Math.max(r + 2, 6) ? found : null;
+  }
+
+  function binAt(x: number, y: number): HexBin | null {
+    if (mode !== 'hex') return null;
+    return bins.get(grid.key(x, y)) ?? null;
+  }
+
+  // ------------------------------------------------------------------ links (world level)
+  function linksOf(f: Frame, iso3: string): Link[] {
+    const c = model.countryOf(iso3);
+    if (c < 0) return [];
+    if (linkIndex === null) {
+      const countryCount = model.countryCodes.length;
+      const byCountry = new Map<number, Map<number, number>>();
+      const byGroup = new Map<number, Map<number, number>>();
+      for (const [key, totals] of f.scan.groupCountry) {
+        const g = Math.floor(key / countryCount);
+        const country = key % countryCount;
+        if (totals.incidents === 0 || !isNamedGroup(model.dict.group[g] ?? '')) continue;
+        if (!byCountry.has(country)) byCountry.set(country, new Map());
+        byCountry.get(country)?.set(g, totals.incidents);
+        if (!byGroup.has(g)) byGroup.set(g, new Map());
+        byGroup.get(g)?.set(country, totals.incidents);
+      }
+      linkIndex = { byCountry, byGroup };
+    }
+    const weights = new Map<number, { weight: number; groups: string[] }>();
+    for (const [g] of linkIndex.byCountry.get(c) ?? []) {
+      for (const [other, incidents] of linkIndex.byGroup.get(g) ?? []) {
+        const code = model.countryCodes[other] ?? '';
+        if (other === c || code === '' || !places.has(code)) continue;
+        const entry = weights.get(other) ?? { weight: 0, groups: [] };
+        entry.weight += incidents;
+        entry.groups.push(model.dict.group[g] ?? '');
+        weights.set(other, entry);
+      }
+    }
+    return [...weights]
+      .sort((a, b) => b[1].weight - a[1].weight)
+      .slice(0, LINKS_SHOWN)
+      .map(([other, entry]) => ({ to: model.countryCodes[other] ?? '', weight: entry.weight, groups: entry.groups }));
+  }
+
+  // ------------------------------------------------------------------ tooltips
+  function countryLines(f: Frame, iso3: string): TooltipLine[] {
+    const c = model.countryOf(iso3);
+    const totals = model.totals(f.table, c < 0 ? [] : [c], f.state.range);
+    const value = f.values.get(iso3) ?? Number.NaN;
+    const rank = f.ranking.rank.get(iso3);
+    const lines: TooltipLine[] = [{ text: formatWithUnit(value, f.metric), strong: true }];
+    if (rank !== undefined) {
+      const before = f.compare === null ? undefined : f.compareRanking?.rank.get(iso3);
+      const was = f.compare === null ? '' : before === undefined ? ` · hors classement en ${formatRange(f.compare)}` : ` · ${ordinal(before)} en ${formatRange(f.compare)}`;
+      lines.push({ text: `${ordinal(rank)} sur ${f.ranking.ordered.length} pays${was}` });
+    } else if (totals.incidents === 0 && f.covered) {
+      lines.push({ text: f.filtered ? 'Aucun incident avec les filtres actifs' : 'Aucun incident enregistré sur la période' });
+    } else if (f.metric.kind === 'mean' && totals.incidents > 0) {
+      lines.push({ text: `Moins de 10 incidents : pas classé (${plural(totals.incidents, 'incident')})` });
+    }
+    if (f.metric.kind !== 'count' && totals.incidents > 0) {
+      lines.push({ text: `${plural(totals.incidents, 'incident')} · valeur connue pour ${formatShare(knownShareOf(totals, f.metric))}` });
+    }
+    if (f.selected.length === 0) {
+      const links = linksOf(f, iso3);
+      if (links.length > 0) {
+        const names = links.slice(0, 3).map((l) => env.name(l.to));
+        const more = links.length > 3 ? ` et ${links.length - 3} autre(s)` : '';
+        lines.push({ text: `Ses organisations agissent aussi en : ${names.join(', ')}${more}` });
+      }
+    }
+    lines.push({
+      text: f.colors.has(iso3)
+        ? 'Clic : retirer de la sélection · double-clic : zoomer'
+        : f.selected.length >= MAX_SELECTION
+          ? `Sélection complète (${MAX_SELECTION} pays) : retirez-en un`
+          : 'Clic : ajouter à la sélection · double-clic : zoomer',
+    });
+    return lines;
+  }
+
+  function showCountryTooltip(event: PointerEvent, f: Frame, iso3: string): void {
+    const region = env.region(iso3);
+    tooltip.show(event, region === '' ? env.name(iso3) : `${env.name(iso3)} · ${region}`, countryLines(f, iso3));
+  }
+
+  function showPointTooltip(event: PointerEvent, f: Frame, n: number): void {
+    const set = placed.sets[n];
+    const i = placed.index[n] ?? 0;
+    if (set === undefined) return;
+    const c = set.file.columns;
+    const killed = c.killed[i];
+    const wounded = c.wounded[i];
+    const place = [c.city[i], env.name(set.iso3)].filter((v) => v != null && v !== '').join(', ');
+    tooltip.show(event, `${incidentDate(c.year[i] ?? 0, c.month[i], c.day[i])} · ${place}`, [
+      {
+        text: `${killed == null ? 'morts inconnus' : plural(killed, 'mort')} · ${wounded == null ? 'blessés inconnus' : plural(wounded, 'blessé')}`,
+        strong: true,
+        key: f.colors.get(set.iso3),
+      },
+      { text: `${categoryLabel('attackType', incidentCategory(set, 'attackType', i))} contre ${categoryLabel('targetType', incidentCategory(set, 'targetType', i)).toLowerCase()}` },
+      { text: categoryLabel('group', incidentCategory(set, 'group', i)) },
+      { text: 'Clic : ouvrir la fiche' },
+    ]);
+  }
+
+  function showBinTooltip(event: PointerEvent, f: Frame, bin: HexBin, under: string | null): void {
+    const totals = binValues.get(bin.key) ?? emptyTotals();
+    const cityCounts = new Map<string, number>();
+    for (const n of bin.items) {
+      const i = inView.idx[n] ?? 0;
+      const city = cells?.city[i];
+      if (city != null && city !== '' && city !== 'Unknown') cityCounts.set(city, (cityCounts.get(city) ?? 0) + (cells?.incidents[i] ?? 0));
+    }
+    const [top] = [...cityCounts].sort((a, b) => b[1] - a[1]);
+    const km = Math.round(HEX_RADIUS * Math.sqrt(3) * kmPerPixel(camera, viewport));
+    const value = metricOf(totals, f.metric, true);
+    const lines: TooltipLine[] = [{ text: f.metric.kind === 'count' ? plural(totals.incidents, 'incident') : `${formatWithUnit(value, f.metric)} · ${plural(totals.incidents, 'incident')}`, strong: true }];
+    if (top !== undefined) lines.push({ text: `Surtout à ${top[0]} (${plural(top[1], 'incident')})` });
+    lines.push({
+      text:
+        under === null
+          ? 'Double-clic : zoomer sur cette zone'
+          : `Clic : ${f.colors.has(under) ? 'retirer' : 'sélectionner'} ${env.name(under)} · double-clic : zoomer`,
+    });
+    tooltip.show(event, `Zone d’environ ${km} km · ${formatRange(f.state.range)}`, lines);
+  }
+
+  // ------------------------------------------------------------------ pointer and keyboard
+  const pointers = new Map<number, [number, number]>();
+  let press: { x: number; y: number; moved: boolean } | null = null;
+  let pinch: number | null = null;
+
+  const local = (event: { clientX: number; clientY: number }): [number, number] => {
+    const box = canvas.node()?.getBoundingClientRect();
+    return box === undefined ? [0, 0] : [event.clientX - box.left, event.clientY - box.top];
+  };
+
+  function setHover(iso3: string | null): void {
+    if (iso3 === hovered) return;
+    hovered = iso3;
+    const current = store.get().hover;
+    if (iso3 === null ? current !== null : current?.id !== iso3) store.set({ hover: iso3 === null ? null : { dim: 'country', id: iso3 } });
+    requestDraw();
+  }
+
+  function onHover(event: PointerEvent): void {
+    const f = frame;
+    if (f === null) return;
+    const [x, y] = local(event);
+    const n = pointAt(x, y);
+    canvas.classed('is-pointing', false);
+    if (n !== null) {
+      canvas.classed('is-pointing', true);
+      setHover(null);
+      showPointTooltip(event, f, n);
+      return;
+    }
+    const bin = binAt(x, y);
+    if (bin !== null) {
+      canvas.classed('is-pointing', true);
+      const under = countryAt(x, y);
+      setHover(under);
+      showBinTooltip(event, f, bin, under);
+      return;
+    }
+    const iso3 = countryAt(x, y);
+    setHover(iso3);
+    if (iso3 === null) tooltip.hide();
+    else {
+      canvas.classed('is-pointing', true);
+      showCountryTooltip(event, f, iso3);
+    }
+  }
+
+  function say(text: string): void {
+    status.text(text).classed('is-visible', true).classed('is-error', false);
+    if (flash !== null) win?.clearTimeout(flash);
+    flash = win?.setTimeout(() => {
+      flash = null;
+      if (frame !== null) updateStatus(frame);
+    }, 2600) ?? null;
+  }
+
+  function onClick(x: number, y: number): void {
+    const f = frame;
+    if (f === null) return;
+    const n = pointAt(x, y);
+    if (n !== null) {
+      const set = placed.sets[n];
+      const id = set?.file.columns.eventId[placed.index[n] ?? 0];
+      if (id !== undefined) store.set({ incident: id });
+      return;
+    }
+    // A click on a hexagon selects the country under it, like a click on the country.
+    const iso3 = countryAt(x, y);
+    if (iso3 === null) return;
+    // The second click of a double-click belongs to the zoom, not to the selection.
+    const t = now();
+    if (lastClick !== null && lastClick.iso3 === iso3 && t - lastClick.at < 350) return;
+    lastClick = { iso3, at: t };
+    if (!toggleCountry(store, iso3)) say(`${MAX_SELECTION} pays au plus : retirez-en un pour en ajouter un autre.`);
+  }
+
+  /** Double-click on a country: frame it (and keep it selected); elsewhere, zoom in. */
+  function onDoubleClick(x: number, y: number): void {
+    const iso3 = countryAt(x, y);
+    const place = iso3 === null ? undefined : places.get(iso3);
+    if (iso3 === null || place === undefined) {
+      zoomBy(2, [x, y]);
+      return;
+    }
+    markInteracted();
+    if (!selectedOf(store.get()).includes(iso3)) toggleCountry(store, iso3);
+    // Already inside the country: keep zooming where the pointer is.
+    const fit = fitCamera(place.main, viewport);
+    if (camera.k >= fit.k * 0.9) zoomBy(2, [x, y]);
+    else flyTo(fit);
+  }
+
+  function zoomBy(factor: number, at?: [number, number]): void {
+    markInteracted();
+    const point = at ?? [viewport.width / 2, viewport.height / 2];
+    camera = zoomAround(camera, viewport, point, factor);
+    active = null;
+    if (wheeling !== null) win?.clearTimeout(wheeling);
+    wheeling = win?.setTimeout(() => {
+      wheeling = null;
+      requestDraw();
+    }, 160) ?? null;
+    requestDraw();
+  }
+
+  canvas
+    .on('pointerdown', (event: PointerEvent) => {
+      const element = canvas.node();
+      element?.setPointerCapture?.(event.pointerId);
+      pointers.set(event.pointerId, local(event));
+      press = { x: event.clientX, y: event.clientY, moved: false };
+      if (pointers.size === 2) {
+        const [a, b] = [...pointers.values()];
+        pinch = a !== undefined && b !== undefined ? Math.hypot(a[0] - b[0], a[1] - b[1]) : null;
+      }
+      markInteracted();
+    })
+    .on('pointermove', (event: PointerEvent) => {
+      pointerInside = true;
+      const previous = pointers.get(event.pointerId);
+      if (previous === undefined) {
+        onHover(event);
+        return;
+      }
+      const position = local(event);
+      pointers.set(event.pointerId, position);
+      if (pointers.size === 2 && pinch !== null) {
+        const [a, b] = [...pointers.values()];
+        if (a !== undefined && b !== undefined) {
+          const distance = Math.hypot(a[0] - b[0], a[1] - b[1]);
+          zoomBy(distance / pinch, [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]);
+          pinch = distance;
+        }
+        return;
+      }
+      if (press !== null && !press.moved && Math.hypot(event.clientX - press.x, event.clientY - press.y) < 4) return;
+      if (press !== null) press.moved = true;
+      dragging = true;
+      active = null;
+      tooltip.hide();
+      canvas.classed('is-dragging', true);
+      camera = rotateBy(camera, viewport, position[0] - previous[0], position[1] - previous[1]);
+      requestDraw();
+    })
+    .on('pointerup pointercancel', (event: PointerEvent) => {
+      pointers.delete(event.pointerId);
+      if (pointers.size < 2) pinch = null;
+      const wasClick = press !== null && !press.moved && event.type === 'pointerup' && pointers.size === 0;
+      if (pointers.size === 0) {
+        press = null;
+        dragging = false;
+        canvas.classed('is-dragging', false);
+        requestDraw();
+      }
+      if (wasClick) {
+        const [x, y] = local(event);
+        onClick(x, y);
+      }
+    })
+    .on('pointerleave', () => {
+      pointerInside = false;
+      tooltip.hide();
+      setHover(null);
+      requestDraw();
+    })
+    .on('dblclick', (event: MouseEvent) => {
+      event.preventDefault();
+      const [x, y] = local(event);
+      onDoubleClick(x, y);
+    })
+    .on('keydown', (event: KeyboardEvent) => {
+      const step = 60;
+      const keys: Record<string, () => void> = {
+        ArrowLeft: () => (camera = rotateBy(camera, viewport, step, 0)),
+        ArrowRight: () => (camera = rotateBy(camera, viewport, -step, 0)),
+        ArrowUp: () => (camera = rotateBy(camera, viewport, 0, step)),
+        ArrowDown: () => (camera = rotateBy(camera, viewport, 0, -step)),
+        '+': () => zoomBy(1.6),
+        '=': () => zoomBy(1.6),
+        '-': () => zoomBy(1 / 1.6),
+        Enter: () => {
+          const iso3 = countryAt(viewport.width / 2, viewport.height / 2);
+          if (iso3 !== null && !toggleCountry(store, iso3)) say(`${MAX_SELECTION} pays au plus.`);
+        },
+      };
+      const action = keys[event.key];
+      if (action === undefined) return;
+      event.preventDefault();
+      markInteracted();
+      active = null;
+      action();
+      requestDraw();
+    });
+  const onWheel = (event: WheelEvent) => {
+    event.preventDefault();
+    tooltip.hide();
+    const scale = event.deltaMode === 1 ? 0.05 : event.deltaMode === 2 ? 1 : 0.0022;
+    zoomBy(Math.exp(-event.deltaY * scale), local(event));
+  };
+  canvas.node()?.addEventListener('wheel', onWheel, { passive: false });
+
+  // ------------------------------------------------------------------ update
+  function update(next: Frame): void {
+    const previous = frame;
+    frame = next;
+    baseVersion++;
+    if (previous === null || previous.scan !== next.scan) linkIndex = null;
+
+    const fills = computeFills(next);
+    const changed = [...fills].some(([iso3, fill]) => targetFills.get(iso3) !== fill);
+    if (changed) {
+      const u = easeOut(Math.min(1, (now() - tweenStart) / COLOR_TWEEN_MS));
+      fromFills = new Map(env.drawable.map((iso3) => [iso3, fillAt(iso3, u)]));
+      targetFills = fills;
+      tweenStart = previous === null || reducedMotion ? -Infinity : now();
+    }
+
+    layerButtons.attr('aria-checked', (d) => String(d.id === next.layer)).classed('is-active', (d) => d.id === next.layer);
+    updateStatus(next);
+    canvas.attr('aria-label', describe(next));
+    updateHint(next);
+    syncCamera(next, previous === null);
+    requestDraw();
+  }
+
+  function updateStatus(f: Frame): void {
+    if (flash !== null) return;
+    const wanted = sources(f);
+    const failed = wanted.filter((iso3) => files.error(iso3) !== undefined);
+    const done = wanted.filter((iso3) => files.get(iso3) !== undefined || files.error(iso3) !== undefined).length;
+    const loading = done < wanted.length;
+    const text =
+      f.layer === 'events' && loading
+        ? `Chargement des attentats : ${done} pays sur ${wanted.length}…`
+        : loading
+          ? `Chargement des incidents de ${f.selected.map((iso3) => env.name(iso3)).join(', ')}…`
+          : failed.length > 0 && failed.length <= 3
+            ? `Incidents indisponibles : ${failed.map((iso3) => env.name(iso3)).join(', ')}`
+            : failed.length > 3
+              ? `Incidents indisponibles pour ${failed.length} pays`
+              : '';
+    status.classed('is-visible', text !== '').classed('is-error', !loading && failed.length > 0).text(text);
+  }
+
+  function describe(f: Frame): string {
+    const period = formatRange(f.state.range);
+    const top = f.ranking.ordered.slice(0, 3).map((iso3) => `${env.name(iso3)} (${formatWithUnit(f.values.get(iso3) ?? Number.NaN, f.metric)})`);
+    const what = f.layer === 'events' ? `attentats ${mode === 'points' ? 'un par un' : 'regroupés par zone'}` : `${f.metric.label.toLowerCase()} par pays`;
+    const selection = f.selected.length > 0 ? ` Pays sélectionnés : ${f.selected.map((iso3) => env.name(iso3)).join(', ')}.` : '';
+    return `Globe : ${what}, ${period}. Les plus touchés : ${top.join(', ')}.${selection}`;
+  }
+
+  return {
+    update,
+    highlight(iso3) {
+      if (iso3 === external) return;
+      external = iso3;
+      requestDraw();
+    },
+    destroy() {
+      loop?.stop();
+      loop = null;
+      if (wheeling !== null) win?.clearTimeout(wheeling);
+      if (flash !== null) win?.clearTimeout(flash);
+      resize?.disconnect();
+      canvas.node()?.removeEventListener('wheel', onWheel);
+      canvas.on('.', null);
+    },
+  };
+}
+
+function pointRadius(killed: number | null): number {
+  return killed === null || killed <= 0 ? 2.2 : Math.min(18, 2.2 + 1.3 * Math.sqrt(killed));
+}
+
+function buildLayer(atlas: CountryAtlas): Layer {
+  const shapes: Shape[] = [
+    ...atlas.countries.map((feature) => shapeOf(feature.properties.iso3, feature)),
+    ...atlas.uncoded.map((feature) => shapeOf(null, feature)),
+  ];
+  const objects = atlas.topology.objects.countries;
+  const borders = mesh(atlas.topology, objects, (a, b) => a !== b).coordinates.map((coordinates): Border => {
+    const line: LineString = { type: 'LineString', coordinates };
+    const centre = geoCentroid(line) as [number, number];
+    let radius = 0;
+    for (const vertex of coordinates) radius = Math.max(radius, geoDistance(centre, vertex as [number, number]));
+    return { line, centre, radius };
+  });
+  return { shapes, borders, outlined: [] };
+}
+
+/** The simplified countries, plus the detailed shapes of the small countries they leave out (Bahrain, Malta…). */
+function hybridLayer(atlas: CountryAtlas, detail: Layer): Layer {
+  const base = buildLayer(atlas);
+  const present = new Set(atlas.countries.map((c) => c.properties.iso3));
+  const extras = detail.shapes.filter((s) => s.iso3 !== null && !present.has(s.iso3));
+  return { shapes: [...base.shapes, ...extras], borders: base.borders, outlined: extras };
+}
+
+function shapeOf(iso3: string | null, feature: Feature<Polygon | MultiPolygon>): Shape {
+  const centre = geoCentroid(feature) as [number, number];
+  let radius = 0;
+  const polygons = feature.geometry.type === 'Polygon' ? [feature.geometry.coordinates] : feature.geometry.coordinates;
+  for (const polygon of polygons) {
+    for (const vertex of polygon[0] ?? []) {
+      const d = geoDistance(centre, vertex as [number, number]);
+      if (d > radius) radius = d;
+    }
+  }
+  return { iso3, feature, centre, radius };
+}
+
+function largestPolygon(feature: Feature<Polygon | MultiPolygon>): Feature<Polygon> {
+  if (feature.geometry.type === 'Polygon') return feature as Feature<Polygon>;
+  let best: Feature<Polygon> | null = null;
+  let bestArea = -1;
+  for (const coordinates of feature.geometry.coordinates) {
+    const part: Feature<Polygon> = { type: 'Feature', properties: {}, geometry: { type: 'Polygon', coordinates } };
+    const area = geoArea(part);
+    if (area > bestArea) {
+      bestArea = area;
+      best = part;
+    }
+  }
+  return best ?? (feature as unknown as Feature<Polygon>);
+}
+
+/** The "no data" hatch of the shared palette, as a canvas pattern. */
+function createHatch(doc: Document, stroke: string): CanvasPattern | null {
+  const tile = doc.createElement('canvas');
+  tile.width = 8;
+  tile.height = 8;
+  const context = tile.getContext?.('2d') ?? null;
+  if (context === null) return null;
+  context.fillStyle = '#ffffff';
+  context.fillRect(0, 0, 8, 8);
+  context.strokeStyle = stroke;
+  context.lineWidth = 1.2;
+  context.beginPath();
+  for (const offset of [-8, 0, 8]) {
+    context.moveTo(offset, 8);
+    context.lineTo(offset + 8, 0);
+  }
+  context.stroke();
+  return context.createPattern(tile, 'repeat');
+}
+
+/** 1, 10, 100… then the maximum; a power of ten too close to the maximum is dropped. */
+function logTicks(max: number): number[] {
+  if (!(max > 0)) return [];
+  const position = (v: number) => Math.log1p(v) / Math.log1p(max);
+  const ticks: number[] = [];
+  for (let p = 1; p < max; p *= 10) ticks.push(p);
+  while (ticks.length > 0 && position(max) - position(ticks[ticks.length - 1] ?? 0) < 0.16) ticks.pop();
+  ticks.push(max >= 10 ? Math.round(max) : Math.round(max * 10) / 10);
+  return ticks;
+}
+
