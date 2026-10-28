@@ -4,6 +4,7 @@ import { buildCountryAtlas, loadCountryAtlas, type CountryAtlas } from '../../co
 import type { ModuleContext, ModuleHandle, VizModule } from '../../core/module';
 import { buildFrame, createEnv, type Env } from './frame';
 import { createGlobe, type Globe } from './globe';
+import { icon } from './icons';
 import { IncidentFiles } from './incidents';
 import { CountryModel } from './model';
 import { createPanel, type Panel } from './panel';
@@ -92,10 +93,56 @@ const mapModule: VizModule = {
 
     function hover(): void {
       const ref = store.get().hover;
-      const iso3 = ref?.dim === 'country' ? ref.id : null;
-      parts?.globe.highlight(iso3);
-      parts?.panel.hover(iso3);
+      parts?.globe.highlight(ref);
+      parts?.panel.hover(ref?.dim === 'country' ? ref.id : null);
     }
+
+    // ------------------------------------------------------------------ keyboard help (D22)
+    const SHORTCUTS: readonly [string, string][] = [
+      ['Glisser, flèches', 'tourner le globe'],
+      ['Molette, + et −', 'zoomer'],
+      ['Clic', 'ajouter ou retirer un pays (4 au plus)'],
+      ['Double-clic', 'zoomer sur un pays'],
+      ['Entrée', 'sélectionner le pays au centre du globe'],
+      ['Espace', 'lancer ou arrêter la lecture'],
+      ['Échap', 'fermer la fiche, puis vider la sélection'],
+      ['?', 'afficher ou masquer cette aide'],
+    ];
+    const help = globeBox.append('div').attr('class', 'cv-help').attr('role', 'dialog').attr('aria-labelledby', 'cv-help-title').attr('hidden', '');
+    const helpHead = help.append('div').attr('class', 'cv-filter-head');
+    helpHead.append('h3').attr('id', 'cv-help-title').text('Raccourcis');
+    helpHead
+      .append('button')
+      .attr('type', 'button')
+      .attr('class', 'cv-tool-button cv-icon-only')
+      .attr('aria-label', 'Fermer l’aide')
+      .html(icon('close'))
+      .on('click', () => toggleHelp(false));
+    const keys = help.append('dl');
+    for (const [key, action] of SHORTCUTS) {
+      keys.append('dt').append('kbd').text(key);
+      keys.append('dd').text(action);
+    }
+    function toggleHelp(show = help.attr('hidden') !== null): void {
+      help.attr('hidden', show ? null : '');
+      if (show) (help.select('button').node() as HTMLButtonElement | null)?.focus();
+    }
+
+    /** Space and ? work wherever the focus is, except while typing or on a control that uses them. */
+    const doc = host.ownerDocument;
+    const onKey = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      const typing = target !== null && (target.isContentEditable || ['INPUT', 'SELECT', 'TEXTAREA'].includes(target.tagName));
+      if (typing || event.ctrlKey || event.metaKey || event.altKey) return;
+      if (event.key === '?') {
+        event.preventDefault();
+        toggleHelp();
+      } else if (event.key === ' ' && (target === null || target === doc.body || target.tagName === 'CANVAS')) {
+        event.preventDefault();
+        parts?.timebar.togglePlay();
+      }
+    };
+    doc.addEventListener('keydown', onKey);
 
     const offs = [
       store.subscribe((s) => s.metric, schedule),
@@ -113,7 +160,8 @@ const mapModule: VizModule = {
     view.on('keydown', (event: KeyboardEvent) => {
       if (event.key !== 'Escape') return;
       const state = store.get();
-      if (state.incident !== null) store.set({ incident: null });
+      if (help.attr('hidden') === null) toggleHelp(false);
+      else if (state.incident !== null) store.set({ incident: null });
       else if (state.pinned.some((r) => r.dim === 'country')) clearCountries(store);
       else return;
       event.preventDefault();
@@ -128,10 +176,11 @@ const mapModule: VizModule = {
         const built = createEnv({ store, dataset, palette, data, model, countries, population, tooltip });
         env = built;
         files = new IncidentFiles(data);
+        const globe = createGlobe(globeBox, built, { detail, coarse }, files);
         parts = {
-          globe: createGlobe(globeBox, built, { detail, coarse }, files),
-          panel: createPanel(stage, built, files),
-          timebar: createTimeBar(view, built),
+          globe,
+          panel: createPanel(stage, built, files, { previewIncident: (eventId) => globe.previewIncident(eventId) }),
+          timebar: createTimeBar(view, built, { onHelp: () => toggleHelp() }),
         };
         render();
         hover();
@@ -145,6 +194,7 @@ const mapModule: VizModule = {
       destroy() {
         alive = false;
         if (progressTimer !== null) window.clearTimeout(progressTimer);
+        doc.removeEventListener('keydown', onKey);
         offs.forEach((off) => off());
         parts?.globe.destroy();
         parts?.timebar.destroy();
