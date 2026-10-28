@@ -16,6 +16,27 @@ export const NO_DATA_PATTERN_ID = 'nodata-hatch';
 
 export const CATEGORICAL: readonly string[] = ['#0072B2', '#E69F00', '#009E73', '#CC79A7', '#56B4E9', '#D55E00'];
 
+/**
+ * Identity of compared entities (countries, groups) when the magnitude ramp is blue on screen: the
+ * four Okabe–Ito colours that are not blue, in a fixed order (bluish green, vermillion, reddish
+ * purple, orange). Adjacent pairs separate by ΔE ≥ 11 under every colour-vision deficiency; purple
+ * and green reach only 7.6 under deuteranopia, so the name always goes with the colour (D20).
+ */
+export const IDENTITY: readonly string[] = ['#009E73', '#D55E00', '#CC79A7', '#E69F00'];
+
+/**
+ * The five most frequent attack types (95 % of the incidents), in an order whose adjacent pairs
+ * all pass the colour-vision checks; every other type shares OTHER_CATEGORY (D21).
+ */
+export const ATTACK_TYPE_COLORS: Readonly<Record<string, string>> = {
+  'Bombing/Explosion': '#0072B2',
+  'Armed Assault': '#E69F00',
+  Assassination: '#009E73',
+  'Hostage Taking (Kidnapping)': '#D55E00',
+  'Facility/Infrastructure Attack': '#CC79A7',
+};
+export const OTHER_CATEGORY = '#8a8983';
+
 const RAMP_START = 0.25;
 
 /** t in [0,1] → colour. Values outside the interval are clamped. */
@@ -63,6 +84,9 @@ export interface PaletteApi {
   readonly zero: string;
   readonly noDataStroke: string;
   readonly categorical: readonly string[];
+  readonly identity: readonly string[];
+  readonly attackTypes: Readonly<Record<string, string>>;
+  readonly other: string;
   sequential(t: number): string;
   ensureNoDataPattern(svg: SVGSVGElement): string;
 }
@@ -71,6 +95,9 @@ export const palette: PaletteApi = {
   zero: ZERO_FILL,
   noDataStroke: NO_DATA_STROKE,
   categorical: CATEGORICAL,
+  identity: IDENTITY,
+  attackTypes: ATTACK_TYPE_COLORS,
+  other: OTHER_CATEGORY,
   sequential,
   ensureNoDataPattern,
 };

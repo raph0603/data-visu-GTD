@@ -108,11 +108,10 @@ export interface Frame {
 export function createEnv(base: Omit<Env, 'name' | 'region' | 'drawable' | 'identity'>): Env {
   const drawable = Object.keys(base.countries.entities).sort();
   const names = new Map(drawable.map((iso3) => [iso3, countryName(iso3, base.countries.entities[iso3]?.label ?? iso3)]));
-  const categorical = base.palette.categorical;
   return {
     ...base,
     drawable,
-    identity: [categorical[2] ?? '#009E73', categorical[5] ?? '#D55E00', categorical[3] ?? '#CC79A7', categorical[1] ?? '#E69F00'],
+    identity: base.palette.identity,
     name: (iso3) => names.get(iso3) ?? iso3,
     region: (iso3) => {
       const region = base.countries.entities[iso3]?.region;
