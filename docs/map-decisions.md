@@ -867,3 +867,49 @@ dans le navigateur : morts par million 2013–2017 (Irak 1 297, Afghanistan 818,
 Syrie 683, monde 22) ; indice base 100 Irak, France, Nigeria 2010–2017 ;
 attentats-suicides Irak 1 874, Nigeria 389, France 6 ; points de l'Irak colorés
 par type d'attaque.
+
+## D22. Palette commune, boutons, animations et interactions
+
+**Statut** : adoptée et implémentée le 2026-10-28 sur `feat/Alban_pays` (choix
+d'Alban parmi les options proposées). La modification de `src/core/palette.ts`
+est **à faire relire par l'équipe** (noyau gelé). Méthode générale :
+`docs/methode-ui.md`.
+
+**Décision** :
+
+- **Palette commune** : `src/core/palette.ts` expose `identity` (4 couleurs
+  Okabe–Ito non bleues, ordre fixe), `attackTypes` (5 types, ordre validé) et
+  `other` (gris), pour que l'atlas, le leaderboard et le flux reprennent les
+  mêmes couleurs que la carte. Un test vérifie qu'aucune couleur d'identité
+  n'est bleue. Le shell (`src/shell/style.css`) reprend les neutres et l'accent
+  de la vue : fond de page presque neutre, onglet actif souligné de l'accent,
+  focus visible, bandeau d'avertissement à bordure complète.
+- **Boutons icône + texte** : « Lire » / « Pause », « Monde », « Filtres » avec
+  le nombre de filtres actifs, « Partager » ; + et − en icônes seules (gestes
+  universels) avec un libellé pour les lecteurs d'écran. Icônes maison sur une
+  grille de 24 (`src/modules/map/icons.ts`).
+- **Filtres repliés** (loi de Hick) : la barre garde lecture, période et
+  mesure ; organisation, attentats-suicides, « par million d'habitants » et
+  comparaison passent dans un panneau « Filtres et options » (Échap le ferme
+  sans vider la sélection, un clic à côté aussi).
+- **Animations** : fondu enchaîné de 200 ms des incidents quand la période ou
+  un filtre change (annulé si la caméra bouge), glissement de 200 ms du
+  contenu du panneau à chaque changement de niveau, fenêtre de la frise qui
+  avance en 300 ms pendant la lecture. Tout est coupé par
+  `prefers-reduced-motion`.
+- **Interactions** : survoler un pays, une organisation ou un incident dans le
+  panneau l'allume sur le globe (pays cerné, pays d'action d'une organisation
+  grisés, incident entouré) ; « Partager » copie le lien de l'état exact ;
+  Espace lance ou arrête la lecture, ? affiche les raccourcis ; un clic sur une
+  courbe de pays garde cette année.
+
+**Arguments** : reconnaissance plus rapide des actions fréquentes avec une
+icône et un mot ; moins de réglages visibles, décision plus rapide ;
+animations qui montrent un changement (et jamais de décor) ; liaison des vues
+(*brushing and linking*) ; état partageable pour les journalistes (U1) et la
+soutenance.
+
+**Vérification** : `npm test` (156 tests, dont la palette), navigateur :
+compteur « Filtres 1 » avec Boko Haram, panneau de filtres et Échap, aide
+clavier et Espace, talibans survolés → Afghanistan et Pakistan cernés, clic sur
+2014 dans la courbe de l'Irak → période 2014.
