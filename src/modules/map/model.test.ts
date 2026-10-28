@@ -103,6 +103,23 @@ describe('CountryModel.scan', () => {
   });
 });
 
+describe('CountryModel.windowMax', () => {
+  const table = model.table(readFilters({}));
+
+  it('is the largest value over every window of the length, skipping windows made of gaps', () => {
+    // One-year windows: NGA 2002 has 3 incidents; 2001 has no data.
+    expect(model.windowMax(table, [fra, nga], incidents, 1)).toBe(3);
+    expect(model.windowMax(table, [fra, nga], killed, 1)).toBe(30);
+    // Two-year windows: 2001-2002 gives NGA 3, 2000-2001 gives FRA 2.
+    expect(model.windowMax(table, [fra], incidents, 2)).toBe(2);
+  });
+
+  it('ignores the means resting on too few incidents', () => {
+    expect(model.windowMax(table, [nga], lethality, 1, 10)).toBe(0);
+    expect(model.windowMax(table, [nga], lethality, 1)).toBe(10);
+  });
+});
+
 describe('isNamedGroup', () => {
   it('keeps organizations and leaves out generic actors and Unknown', () => {
     expect(isNamedGroup('Boko Haram')).toBe(true);

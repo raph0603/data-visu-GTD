@@ -122,6 +122,11 @@ export interface Scan {
   readonly groupCountry: ReadonlyMap<number, Totals>;
   /** First and last year of activity of each group in the window, for the groups of `combined`. */
   readonly groupYears: ReadonlyMap<number, readonly [number, number]>;
+  /**
+   * Incidents per year of the whole span (not only the window), per selected country and group:
+   * the activity strip of an organization shows when it appeared and when it dominated (T7).
+   */
+  readonly groupActivity: ReadonlyMap<number, ReadonlyMap<number, Float64Array>>;
 }
 
 export class CountryModel {
@@ -308,6 +313,7 @@ export class CountryModel {
     const targetWeapon = new Map<string, Totals>();
     const groupCountry = new Map<number, Totals>();
     const groupYears = new Map<number, [number, number]>();
+    const groupActivity = new Map(selection.map((c) => [c, new Map<number, Float64Array>()]));
     const countryCount = this.countryCodes.length;
     const m = this.measures;
     const row = emptyTotals();
@@ -320,6 +326,13 @@ export class CountryModel {
     for (let r = 0; r < this.rows; r++) {
       if (mask[r] !== 1) continue;
       const y = this.year[r] ?? 0;
+      const activity = groupActivity.get(this.country[r] ?? 0);
+      if (activity !== undefined) {
+        const g = this.dims.group[r] ?? 0;
+        let years = activity.get(g);
+        if (years === undefined) activity.set(g, (years = new Float64Array(this.span)));
+        years[y] = (years[y] ?? 0) + (m.incidents[r] ?? 0);
+      }
       if (y < from || y > to) continue;
       row.incidents = m.incidents[r] ?? 0;
       row.killedSum = m.killedSum[r] ?? 0;
@@ -349,9 +362,42 @@ export class CountryModel {
       if (span === undefined) groupYears.set(g, [year, year]);
       else groupYears.set(g, [Math.min(span[0], year), Math.max(span[1], year)]);
     }
-    return { combined, perCountry, attackTarget, targetWeapon, groupCountry, groupYears };
+    return { combined, perCountry, attackTarget, targetWeapon, groupCountry, groupYears, groupActivity };
+  }
+
+  /**
+   * Largest value of the metric for any of `countries` over any window of `length` years. The map
+   * fixes its colour scale on it, so that a colour keeps its meaning while the window slides (play).
+   * Windows made only of gaps are skipped; a mean needs `minIncidents` incidents to count.
+   */
+  windowMax(table: YearTable, countries: readonly number[], metric: MetricDef, length: number, minIncidents = 0): number {
+    const span = this.span;
+    const size = Math.max(1, Math.min(length, span));
+    const covered = new Uint8Array(span + 1);
+    for (let y = 0; y < span; y++) covered[y + 1] = (covered[y] ?? 0) + (this.gaps.includes(this.first + y) ? 0 : 1);
+    const prefix = Object.fromEntries(MEASURES.map((key) => [key, new Float64Array(span + 1)])) as Record<keyof YearTable, Float64Array>;
+    const window = emptyTotals();
+    let max = 0;
+    for (const c of countries) {
+      const base = c * span;
+      for (const key of MEASURES) {
+        const p = prefix[key];
+        const values = table[key];
+        for (let y = 0; y < span; y++) p[y + 1] = (p[y] ?? 0) + (values[base + y] ?? 0);
+      }
+      for (let start = 0; start + size <= span; start++) {
+        if ((covered[start + size] ?? 0) - (covered[start] ?? 0) === 0) continue;
+        for (const key of MEASURES) window[key] = (prefix[key][start + size] ?? 0) - (prefix[key][start] ?? 0);
+        if (metric.kind === 'mean' && window.incidents < minIncidents) continue;
+        const value = metricOf(window, metric, true);
+        if (value > max) max = value;
+      }
+    }
+    return max;
   }
 }
+
+const MEASURES = ['incidents', 'killedSum', 'killedKnown', 'woundedSum', 'woundedKnown'] as const;
 
 /**
  * Perpetrator labels of the GTD that describe a kind of actor rather than an organization
