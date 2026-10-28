@@ -75,8 +75,13 @@ taux par habitant sans données externes (Banque mondiale), avec leur licence et
 classer les pays (T1), en échelle logarithmique, et le rang chiffré figure dans l'infobulle et le
 panneau.
 
-**À faire** : ajouter une mesure « par million d'habitants », ou remplacer la choroplèthe par des
-cercles proportionnels au centre de chaque pays.
+**Fait (D21)** : une case « par million d'habitants » divise chaque valeur par la population moyenne
+de la période (Banque mondiale, SP.POP.TOTL, CC BY 4.0). Elle s'applique au globe en calque « Pays »,
+au classement, aux infobulles, à la frise et aux courbes. Le tableau donne toujours les deux valeurs.
+Les pays de moins d'un million d'habitants ne sont pas classés (une seule attaque à Monaco le
+placerait en tête), et les taux s'étalent sur quatre ordres de grandeur d'une échelle logarithmique.
+
+**Reste possible** : des cercles proportionnels au centre de chaque pays pour les totaux.
 
 ## 4. Les morts pèsent plus que les incidents
 
@@ -127,8 +132,10 @@ L'organisation est une clé d'entrée aussi importante que le pays (T7).
 - les organisations du panneau sont cliquables pour filtrer ;
 - la frise d'activité 1970–2017 de chaque organisation.
 
-**À faire dans l'atlas** : un filtre attentat-suicide et une couleur des points par type d'attaque
-(T6, T8).
+**Fait (D21)** :
+- un filtre « Attentats-suicides : Tous, Suicide, Hors suicide » (T8) ;
+- la couleur des points par type d'attaque au choix dans la légende (T6) : les 5 types les plus
+  fréquents en couleur, les autres en gris, dans un ordre validé pour le daltonisme.
 
 ## 6. La GTD a changé de méthode de collecte
 
@@ -195,7 +202,9 @@ les petits pays.
   comparée ;
 - **superposition** : seulement sur le globe, avec les contours de couleur des pays.
 
-**À faire** : un mode « indice base 100 » pour comparer des trajectoires sur une même échelle.
+**Fait (D21)** : un mode « indice base 100 », où 100 est la moyenne annuelle de chaque pays sur la
+période choisie. Les courbes partagent alors une seule échelle et se superposent (encodage explicite
+des trajectoires). L'année 1993 coupe la ligne au lieu de la faire tomber à zéro.
 
 ## 9. Vue d'ensemble, zoom et filtre, détail à la demande
 
@@ -234,9 +243,9 @@ faut le dire clairement, à l'écran et en soutenance.
 | Taille des points = morts, couleur = une seule rampe | §4, palette du projet | fait |
 | Villes les plus touchées comme repères | pas de fond de carte hors ligne | fait |
 | Filtre par organisation | §5 | fait |
-| Filtre attentat-suicide, couleur par type d'attaque | §5 (T6, T8) | à faire |
+| Filtre attentat-suicide, couleur par type d'attaque | §5 (T6, T8) | fait (D21) |
 | Ruptures de collecte et 1993 signalées | §6 | fait |
-| Part des incidents sans coordonnées (2,5 %) signalée | qualité des données | à faire |
+| Part des incidents sans coordonnées (2,5 %) signalée | qualité des données | fait (D21) : légende et panneau |
 
 ## Synthèse pour la comparaison de pays
 
@@ -246,8 +255,8 @@ faut le dire clairement, à l'écran et en soutenance.
 | Tableau juxtaposé, écarts en % et rang passé | §8 | fait |
 | Petits multiples annuels | §7, §8 | fait |
 | Tout désélectionner, retirer un pays | ergonomie | fait |
-| Taux par habitant | §3 | à faire (données externes) |
-| Indice base 100 | §8 | à faire |
+| Taux par habitant | §3 | fait (D21), population de la Banque mondiale |
+| Indice base 100 | §8 | fait (D21) |
 | Indice composite de type GTI | §4 | écarté (poids discutés, colonnes absentes) |
 
 ---
@@ -267,5 +276,6 @@ faut le dire clairement, à l'écran et en soutenance.
 - Méthode de collecte de la GTD : [Wikipédia](https://en.wikipedia.org/wiki/Global_Terrorism_Database), [codebook 2016 archivé](https://webarchive.library.unt.edu/web/20161103051957/http://www.start.umd.edu/gtd/downloads/Codebook.pdf)
 - Robertson et coll. (2008), *Effectiveness of Animation in Trend Visualization* : [PDF](https://faculty.cc.gatech.edu/~stasko/papers/infovis08-anim.pdf) ; Brehmer et coll. (2019) : [arXiv](https://arxiv.org/pdf/1907.03919)
 - Gleicher et coll. (2011) et Gleicher (2018) : [*Considerations for Visualizing Comparison*](https://pages.graphics.cs.wisc.edu/VisSnacks/papers/comparison) ; L'Yi, Jo, Seo (2021) : [arXiv](https://arxiv.org/pdf/2009.00192)
+- Population : Banque mondiale, World Development Indicators, [SP.POP.TOTL](https://data.worldbank.org/indicator/SP.POP.TOTL) (CC BY 4.0)
 - Outils antérieurs sur la GTD : [GTD Data Rivers (START)](https://start.umd.edu/gtd/features/GTD-Data-Rivers.aspx), [Lee, *Exploring Global Terrorism Data*](https://www.cs.umd.edu/sites/default/files/scholarly_papers/JoonghoonLee_1.pdf)
 - Shneiderman (1996), *The Eyes Have It: A Task by Data Type Taxonomy for Information Visualizations*, IEEE Symposium on Visual Languages (référence classique, non relue ici).
