@@ -14,6 +14,7 @@
     "coverage:tasks:strict": "tsx scripts/coverage-report.ts --strict"
   },
   "dependencies": {
+    "@fontsource-variable/libre-franklin": "^5.3.0",
     "d3": "^7.9.0",
     "d3-sankey": "^0.12.3",
     "topojson-client": "^3.1.0",
