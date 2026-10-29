@@ -48,8 +48,9 @@ export function createPanel<E extends Element>(parent: Sel<E>, env: Env, files: 
   const crumbs = root.append('nav').attr('class', 'cv-crumbs').attr('aria-label', 'Niveau de lecture').append('ol');
   const scroll = root.append('div').attr('class', 'cv-panel-scroll');
   const head = scroll.append('header').attr('class', 'cv-panel-head');
-  const figures = scroll.append('section').attr('class', 'cv-section cv-figures').attr('aria-label', 'Chiffres clés');
+  // The hovered country's readout comes first, where it stays in sight above the panel's fold (D23).
   const hovered = scroll.append('section').attr('class', 'cv-section cv-hovered').attr('aria-live', 'polite');
+  const figures = scroll.append('section').attr('class', 'cv-section cv-figures').attr('aria-label', 'Chiffres clés');
   const trends = scroll.append('section').attr('class', 'cv-section cv-trends');
   const groups = scroll.append('section').attr('class', 'cv-section cv-groups');
   const deadliest = scroll.append('section').attr('class', 'cv-section cv-deadliest');

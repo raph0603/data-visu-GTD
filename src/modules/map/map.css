@@ -1,28 +1,35 @@
 /*
- * Country view (D19): a globe, a side panel, a time bar. Restrained: neutral chrome, the only strong
- * colour is the magnitude ramp carried by the globe. Text wears ink tokens, never series colours.
+ * Country view (D19), dressed as plate 1 of the atlas (D23): a globe, a side panel, a time bar.
+ * The shell draws the plate's ink frame; inside, the panel and the time bar are set off by hairlines,
+ * the legend is an ink cartouche, no corner past 2 px, no shadow; interaction marks wear ink, and colour
+ * is kept for the data (the magnitude ramp, the identities). Text wears ink tokens, never series colours.
  */
 .cv {
   --cv-surface: #ffffff;
-  --cv-sunken: #f4f5f6;
+  --cv-sunken: #f6f6f3;
   --cv-ink: #1d1d1b;
   --cv-secondary: #4d4c48;
-  --cv-muted: #6b6a65;
+  --cv-muted: #5f5e5a;
   --cv-hairline: #e2e1dc;
   --cv-strong-line: #c9c8c1;
-  --cv-accent: #1f5f99;
-  --cv-accent-soft: #eaf1f8;
+  --cv-frame: #1d1d1b;
+  --cv-accent: #1d1d1b;
+  --cv-accent-soft: #f1f1ee;
+  /* The data blue of the ramp, for marks that are data outside the globe (year bars, windows). */
+  --cv-data: #1f5f99;
+  --cv-data-soft: #eaf1f8;
   --cv-focus: #0072b2;
   --cv-worse: #9b2c12;
   --cv-better: #1f6b3a;
-  --cv-radius: 14px;
-  --cv-shadow: 0 1px 2px rgba(31, 41, 51, 0.06), 0 4px 16px rgba(31, 41, 51, 0.06);
+  --cv-radius: 2px;
+  --cv-shadow: none;
   --cv-z-overlay: 2;
   --cv-z-tooltip: 10;
   display: grid;
   grid-template-rows: minmax(0, 1fr) auto;
   gap: 12px;
-  height: max(620px, calc(100vh - 132px));
+  /* --shell-chrome: height the shell takes above the view (masthead and plate heading). */
+  height: max(620px, calc(100vh - var(--shell-chrome, 132px)));
   max-width: 1640px;
   margin: 0 auto;
   color: var(--cv-ink);
@@ -64,7 +71,7 @@
   flex: none;
   width: 10px;
   height: 10px;
-  border-radius: 3px;
+  border-radius: 2px;
   vertical-align: -1px;
 }
 
@@ -173,7 +180,7 @@
   margin: 0;
   padding: 6px 12px;
   border: 1px solid var(--cv-hairline);
-  border-radius: 999px;
+  border-radius: 2px;
   background: rgba(255, 255, 255, 0.94);
   font-size: 12.5px;
   color: var(--cv-secondary);
@@ -214,10 +221,9 @@
   z-index: var(--cv-z-overlay);
   display: grid;
   overflow: hidden;
-  border: 1px solid var(--cv-hairline);
-  border-radius: 10px;
+  border: 1px solid var(--cv-strong-line);
+  border-radius: 2px;
   background: var(--cv-surface);
-  box-shadow: var(--cv-shadow);
 }
 
 .cv-zoom button {
@@ -248,9 +254,9 @@
   gap: 6px;
   width: min(270px, calc(100% - 28px));
   padding: 10px 12px;
-  border: 1px solid var(--cv-hairline);
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid var(--cv-frame);
+  border-radius: 0;
+  background: var(--cv-surface);
   font-size: 12px;
   color: var(--cv-secondary);
 }
@@ -317,10 +323,10 @@
   flex-direction: column;
   min-height: 0;
   overflow: hidden;
-  border: 1px solid var(--cv-hairline);
-  border-radius: var(--cv-radius);
+  border: 0;
+  border-left: 1px solid var(--cv-hairline);
+  border-radius: 0;
   background: var(--cv-surface);
-  box-shadow: var(--cv-shadow);
 }
 
 .cv-crumbs {
@@ -328,6 +334,11 @@
   padding: 12px 20px 10px;
   border-bottom: 1px solid var(--cv-hairline);
   font-size: 13px;
+}
+
+/* At world level the trail is the root alone, which the panel's title already says. */
+.cv-crumbs:not(:has(li + li)) {
+  display: none;
 }
 
 .cv-crumbs ol {
@@ -365,8 +376,10 @@
   flex: 1;
   min-height: 0;
   overflow: auto;
-  padding: 18px 20px 20px;
+  padding: 18px 20px 36px;
   scrollbar-gutter: stable;
+  /* The panel scrolls: its fold fades out instead of cutting a line in half. */
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 36px), transparent);
 }
 
 .cv-panel-head h2 {
@@ -477,7 +490,7 @@
   min-height: 44px;
   padding: 8px 8px;
   border: none;
-  border-radius: 6px;
+  border-radius: 2px;
   background: none;
   text-align: left;
   color: var(--cv-secondary);
@@ -523,7 +536,7 @@
 .cv-hovered {
   min-height: 88px;
   padding: 14px 16px;
-  border-radius: 10px;
+  border-radius: 2px;
   background: var(--cv-sunken);
 }
 
@@ -617,7 +630,7 @@
   bottom: -3px;
   flex: none;
   border: 1.5px solid var(--cv-ink);
-  border-radius: 3px;
+  border-radius: 2px;
   background: none;
   pointer-events: none;
 }
@@ -642,7 +655,7 @@
   width: 100%;
   padding: 9px 6px;
   border: none;
-  border-radius: 6px;
+  border-radius: 2px;
   background: none;
   text-align: left;
   cursor: pointer;
@@ -697,7 +710,7 @@
   max-width: 68ch;
   margin: 18px 0 0;
   padding: 12px 14px;
-  border-radius: 10px;
+  border-radius: 2px;
   background: var(--cv-sunken);
   line-height: 1.55;
   text-wrap: pretty;
@@ -728,7 +741,7 @@
   min-height: 40px;
   padding: 8px 12px;
   border: 1px solid var(--cv-strong-line);
-  border-radius: 8px;
+  border-radius: 2px;
   background: var(--cv-surface);
   font-size: 14px;
   color: var(--cv-ink);
@@ -757,11 +770,11 @@
   grid-template-rows: auto auto;
   align-items: start;
   gap: 10px 22px;
-  padding: 12px 18px;
-  border: 1px solid var(--cv-hairline);
-  border-radius: var(--cv-radius);
+  padding: 14px 0 0;
+  border: 0;
+  border-top: 1px solid var(--cv-hairline);
+  border-radius: 0;
   background: var(--cv-surface);
-  box-shadow: var(--cv-shadow);
 }
 
 .cv-play {
@@ -772,7 +785,7 @@
   height: 44px;
   padding: 0 18px 0 14px;
   border: none;
-  border-radius: 999px;
+  border-radius: 2px;
   font-weight: 600;
   background: var(--cv-ink);
   color: #fff;
@@ -781,7 +794,7 @@
 }
 
 .cv-play:hover {
-  background: var(--cv-accent);
+  background: #000;
 }
 
 .cv-play .cv-icon {
@@ -853,7 +866,7 @@
 }
 
 .cv-bar.is-in .cv-bar-fill {
-  background: var(--cv-accent);
+  background: var(--cv-data);
 }
 
 .cv-bar:hover .cv-bar-fill {
@@ -870,7 +883,7 @@
   top: -4px;
   bottom: -4px;
   border: 1.5px solid var(--cv-ink);
-  border-radius: 5px;
+  border-radius: 2px;
   pointer-events: none;
 }
 
@@ -899,7 +912,7 @@
   width: 14px;
   height: 48px;
   border: none;
-  border-radius: 4px;
+  border-radius: 2px;
   background: linear-gradient(to right, transparent 4px, var(--cv-ink) 4px 10px, transparent 10px);
   cursor: ew-resize;
   pointer-events: auto;
@@ -910,7 +923,7 @@
   width: 14px;
   height: 48px;
   border: none;
-  border-radius: 4px;
+  border-radius: 2px;
   background: linear-gradient(to right, transparent 4px, var(--cv-ink) 4px 10px, transparent 10px);
   cursor: ew-resize;
   pointer-events: auto;
@@ -955,16 +968,16 @@
 
 .cv-segmented {
   display: flex;
-  padding: 3px;
-  border-radius: 10px;
-  background: var(--cv-sunken);
+  padding: 2px;
+  border: 1px solid var(--cv-strong-line);
+  border-radius: 2px;
 }
 
 .cv-segmented button {
   min-height: 34px;
   padding: 6px 11px;
   border: none;
-  border-radius: 7px;
+  border-radius: 2px;
   background: none;
   white-space: nowrap;
   color: var(--cv-secondary);
@@ -977,10 +990,9 @@
 }
 
 .cv-segmented button.is-active {
-  background: var(--cv-surface);
-  box-shadow: 0 1px 2px rgba(31, 41, 51, 0.12);
+  background: var(--cv-ink);
   font-weight: 600;
-  color: var(--cv-ink);
+  color: #fff;
 }
 
 .cv-compare-row {
@@ -993,7 +1005,7 @@
   min-height: 34px;
   padding: 4px 8px;
   border: 1px solid var(--cv-strong-line);
-  border-radius: 8px;
+  border-radius: 2px;
   background: var(--cv-surface);
 }
 
@@ -1027,10 +1039,9 @@
   z-index: var(--cv-z-tooltip);
   max-width: 310px;
   padding: 9px 12px;
-  border: 1px solid var(--cv-hairline);
-  border-radius: 10px;
+  border: 1px solid var(--cv-frame);
+  border-radius: 2px;
   background: var(--cv-surface);
-  box-shadow: 0 6px 24px rgba(31, 41, 51, 0.14);
   font-size: 13px;
   pointer-events: none;
 }
@@ -1078,17 +1089,16 @@
   z-index: var(--cv-z-overlay);
   display: flex;
   padding: 3px;
-  border: 1px solid var(--cv-hairline);
-  border-radius: 10px;
+  border: 1px solid var(--cv-strong-line);
+  border-radius: 2px;
   background: var(--cv-surface);
-  box-shadow: var(--cv-shadow);
 }
 
 .cv-layer button {
   min-height: 32px;
   padding: 5px 12px;
   border: none;
-  border-radius: 7px;
+  border-radius: 2px;
   background: none;
   color: var(--cv-secondary);
   cursor: pointer;
@@ -1102,6 +1112,14 @@
 
 .cv-hint {
   top: 62px;
+}
+
+/* Beside a wide globe the hint keeps to the left margin, under the layer switch, so it never covers
+   the top of the sphere and its labels. Phones give it a band of its own (below). */
+@media (min-width: 641px) {
+  .cv-hint {
+    max-width: 220px;
+  }
 }
 
 .cv-bars {
@@ -1142,7 +1160,7 @@
   min-height: 28px;
   padding: 3px 10px;
   border: 1px solid var(--cv-hairline);
-  border-radius: 999px;
+  border-radius: 2px;
   background: var(--cv-surface);
   font-size: 12.5px;
   color: var(--cv-secondary);
@@ -1175,7 +1193,7 @@
   min-height: 34px;
   padding: 4px 10px;
   border: 1px solid var(--cv-strong-line);
-  border-radius: 8px;
+  border-radius: 2px;
   background: var(--cv-surface);
 }
 
@@ -1198,7 +1216,7 @@
   overflow: hidden;
   padding: 3px 9px;
   border: 1px solid var(--cv-ink);
-  border-radius: 999px;
+  border-radius: 2px;
   background: var(--cv-ink);
   font-size: 12px;
   color: #fff;
@@ -1221,7 +1239,7 @@
   gap: 8px;
   padding: 6px 6px 6px 10px;
   border: 1px solid var(--cv-hairline);
-  border-radius: 8px;
+  border-radius: 2px;
 }
 
 .cv-selection-text {
@@ -1244,7 +1262,7 @@
   height: 30px;
   padding: 0;
   border: none;
-  border-radius: 6px;
+  border-radius: 2px;
   background: none;
   font-size: 18px;
   line-height: 1;
@@ -1273,7 +1291,7 @@
   min-height: 34px;
   padding: 5px 12px;
   border: 1px solid var(--cv-strong-line);
-  border-radius: 8px;
+  border-radius: 2px;
   background: var(--cv-surface);
   cursor: pointer;
 }
@@ -1323,7 +1341,7 @@
 }
 
 .cv-trend-window {
-  fill: var(--cv-accent-soft);
+  fill: var(--cv-data-soft);
 }
 
 .cv-trend-gap {
@@ -1444,7 +1462,7 @@
 }
 
 .cv-index-window {
-  fill: var(--cv-accent-soft);
+  fill: var(--cv-data-soft);
 }
 
 .cv-index-grid {
@@ -1490,7 +1508,7 @@
   min-height: 26px;
   padding: 2px 9px;
   border: 1px solid var(--cv-hairline);
-  border-radius: 999px;
+  border-radius: 2px;
   background: var(--cv-surface);
   font-size: 12px;
   color: var(--cv-secondary);
@@ -1531,9 +1549,8 @@
   min-height: 34px;
   padding: 4px 12px 4px 10px;
   border: 1px solid var(--cv-hairline);
-  border-radius: 10px;
+  border-radius: 2px;
   background: var(--cv-surface);
-  box-shadow: var(--cv-shadow);
   font-size: 13px;
   cursor: pointer;
 }
@@ -1557,7 +1574,7 @@
   min-height: 36px;
   padding: 5px 12px 5px 10px;
   border: 1px solid var(--cv-strong-line);
-  border-radius: 8px;
+  border-radius: 2px;
   background: var(--cv-surface);
   font-size: 13.5px;
   color: var(--cv-ink);
@@ -1592,7 +1609,7 @@
   min-width: 20px;
   height: 20px;
   padding: 0 6px;
-  border-radius: 999px;
+  border-radius: 2px;
   background: var(--cv-ink);
   font-size: 12px;
   font-weight: 600;
@@ -1607,10 +1624,9 @@
   gap: 14px;
   width: min(360px, calc(100vw - 32px));
   padding: 14px 16px 16px;
-  border: 1px solid var(--cv-hairline);
-  border-radius: 12px;
+  border: 1px solid var(--cv-frame);
+  border-radius: 2px;
   background: var(--cv-surface);
-  box-shadow: 0 12px 32px rgba(31, 41, 51, 0.16);
 }
 
 .cv-filter-panel {
@@ -1673,7 +1689,7 @@
   padding: 1px 7px;
   border: 1px solid var(--cv-strong-line);
   border-bottom-width: 2px;
-  border-radius: 5px;
+  border-radius: 2px;
   background: var(--cv-sunken);
   font: 12.5px/1.5 ui-monospace, 'Cascadia Mono', Consolas, monospace;
   white-space: nowrap;
@@ -1722,6 +1738,8 @@
 
   .cv-panel-scroll {
     overflow: visible;
+    padding-bottom: 20px;
+    mask-image: none;
   }
 
   .cv-timebar {
@@ -1736,6 +1754,18 @@
 
   .cv-segmented {
     overflow-x: auto;
+  }
+}
+
+/* On a phone the overlays get bands of their own above and below the globe instead of covering it;
+   the zoom tip goes, the hint at the top already says how to zoom. */
+@media (max-width: 640px) {
+  .cv-globe {
+    height: calc(100vw + 280px);
+  }
+
+  .cv-legend .is-tip {
+    display: none;
   }
 }
 

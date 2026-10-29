@@ -16,9 +16,9 @@ import type { Sel, TooltipLine } from './ui';
 
 const SPHERE: GeoSphere = { type: 'Sphere' };
 const GRATICULE = geoGraticule10();
-const OCEAN_LIGHT = '#f1f5f8';
-const OCEAN_DEEP = '#dce5ec';
-const LIMB = 'rgba(40, 60, 80, 0.22)';
+/** Flat sea and an ink edge, as on the atlas cover (D23): no lighting, no shadow. */
+const OCEAN = '#f3f5f7';
+const LIMB = '#1d1d1b';
 const BORDER = 'rgba(255, 255, 255, 0.9)';
 /** Land of the countries that are not explored, at the country level: the context recedes. */
 const RECEDED_LAND = '#ecebe6';
@@ -28,7 +28,8 @@ const LAND = '#e8e7e2';
 /** Points of the countries that are not selected (selected ones wear their identity colour). */
 const POINT_BASE = '#2f6496';
 const INK = '#1d1d1b';
-const FONT = 'system-ui, -apple-system, "Segoe UI", sans-serif';
+/** The shell's typeface (D23), with the system one while it loads. */
+const FONT = '"Libre Franklin Variable", system-ui, -apple-system, "Segoe UI", sans-serif';
 
 /** Degrees per second of the idle rotation. */
 const SPIN_SPEED = 3;
@@ -400,6 +401,16 @@ export function createGlobe(parent: Sel<HTMLDivElement>, env: Env, atlases: Glob
   const baseCanvas = doc.createElement('canvas');
   let baseKey = '';
   let baseVersion = 0;
+  // Canvas text does not wait for web fonts: once the shell's typeface is in, the labels are redrawn
+  // with it rather than left in the system face of the first paint (D23).
+  void doc.fonts
+    ?.load(`600 12px ${FONT}`)
+    .then(() => {
+      if (canvas.node()?.isConnected !== true) return;
+      baseVersion++;
+      requestDraw();
+    })
+    .catch(() => undefined);
 
   function draw(): void {
     const element = canvas.node();
@@ -505,27 +516,13 @@ export function createGlobe(parent: Sel<HTMLDivElement>, env: Env, atlases: Glob
     const path = geoPath(projection, context);
     const fast = geoPath(frontProjection(camera, viewport), context);
     const trace = (shape: Shape) => (onFrontSide(camera, shape.centre, shape.radius) ? fast : path)(shape.feature);
-    const radius = baseRadius(viewport) * camera.k;
-    const cx = width / 2;
-    const cy = height / 2;
     const centre: [number, number] = [camera.lambda, camera.phi];
     const reach = viewRadius(camera, viewport) + 0.03;
 
-    // Ocean, lit from the upper left, with a soft shadow that sets the globe on the page.
-    context.save();
     context.beginPath();
     path(SPHERE);
-    const ocean = context.createRadialGradient(cx - radius * 0.35, cy - radius * 0.4, radius * 0.05, cx, cy, radius);
-    ocean.addColorStop(0, OCEAN_LIGHT);
-    ocean.addColorStop(1, OCEAN_DEEP);
-    context.fillStyle = ocean;
-    if (camera.k < 1.6) {
-      context.shadowColor = 'rgba(31, 52, 74, 0.16)';
-      context.shadowBlur = 30;
-      context.shadowOffsetY = 10;
-    }
+    context.fillStyle = OCEAN;
     context.fill();
-    context.restore();
 
     if (camera.k < 10) {
       context.beginPath();
@@ -580,7 +577,13 @@ export function createGlobe(parent: Sel<HTMLDivElement>, env: Env, atlases: Glob
       context.stroke();
     }
 
+    // Cells near the limb would spill over the ink edge: the incident layer is clipped to the sphere.
+    context.save();
+    context.beginPath();
+    path(SPHERE);
+    context.clip();
     drawIncidents(context, f, centre, reach);
+    context.restore();
 
     drawLabels(context, projection, centre, f);
 
@@ -928,7 +931,7 @@ export function createGlobe(parent: Sel<HTMLDivElement>, env: Env, atlases: Glob
         .attr('class', 'cv-legend-note')
         .text(rate ? 'Échelle logarithmique, fixe pendant la lecture. Population : Banque mondiale ; pays de moins d’un million d’habitants non classés.' : 'Échelle logarithmique, fixe pendant la lecture.');
     }
-    if (mode === 'hex') legend.append('p').attr('class', 'cv-legend-note').text('Zoomez pour voir chaque attentat, coloré par pays ou par type d’attaque.');
+    if (mode === 'hex') legend.append('p').attr('class', 'cv-legend-note is-tip').text('Zoomez pour voir chaque attentat, coloré par pays ou par type d’attaque.');
     unplaced();
   }
 
