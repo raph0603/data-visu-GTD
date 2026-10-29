@@ -1,0 +1,53 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "radial-halo",
+        "value": "*",
+        "files": [
+          ".impeccable/mocks/decision/assigned.html"
+        ],
+        "createdAt": "2026-10-28T21:39:40.682Z",
+        "reason": "Claude: throwaway decision-round sketch, the gradients stand in for the live D3 globe; never shipped"
+      },
+      {
+        "rule": "radial-halo",
+        "value": "*",
+        "files": [
+          ".impeccable/mocks/decision/model-pick.html"
+        ],
+        "createdAt": "2026-10-28T21:39:41.046Z",
+        "reason": "Claude: throwaway decision-round sketch, the gradients stand in for the live D3 globe; never shipped"
+      },
+      {
+        "rule": "cramped-padding",
+        "value": "*",
+        "files": [
+          ".impeccable/mocks/decision/model-pick.html"
+        ],
+        "createdAt": "2026-10-28T21:39:41.426Z",
+        "reason": "Claude: throwaway decision-round sketch (list rows with a top rule), never shipped"
+      },
+      {
+        "rule": "cramped-padding",
+        "value": "*",
+        "files": [
+          ".impeccable/mocks/decision/safer-bertin.html"
+        ],
+        "createdAt": "2026-10-28T21:45:56.051Z",
+        "reason": "Claude: throwaway decision-round sketch, never shipped"
+      },
+      {
+        "rule": "design-system-font",
+        "value": "*",
+        "files": [
+          ".impeccable/mocks/decision/*.html"
+        ],
+        "createdAt": "2026-10-29T10:31:19.595Z",
+        "reason": "Claude: throwaway decision-round sketches written before DESIGN.md existed; never shipped"
+      }
+    ]
+  }
+}
