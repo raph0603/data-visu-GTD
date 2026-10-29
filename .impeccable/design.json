@@ -1,0 +1,843 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-29T10:30:08.622Z",
+  "title": "Design System: Atlas du terrorisme",
+  "extensions": {
+    "colorMeta": {
+      "ink": {
+        "role": "primary",
+        "displayName": "Encre d’imprimerie",
+        "canonical": "#1d1d1b",
+        "oklch": "oklch(23% 0.0038 106.7)",
+        "tonalRamp": [
+          "oklch(15% 0.0006 106.7)",
+          "oklch(26.4% 0.0016 106.7)",
+          "oklch(37.9% 0.0026 106.7)",
+          "oklch(49.3% 0.0037 106.7)",
+          "oklch(60.7% 0.0037 106.7)",
+          "oklch(72.1% 0.0026 106.7)",
+          "oklch(83.6% 0.0016 106.7)",
+          "oklch(95% 0.0006 106.7)"
+        ]
+      },
+      "ink-pressed": {
+        "role": "primary",
+        "displayName": "Encre pressée",
+        "canonical": "#000000",
+        "oklch": "oklch(0% 0 0)",
+        "tonalRamp": [
+          "oklch(15% 0 0)",
+          "oklch(26.4% 0 0)",
+          "oklch(37.9% 0 0)",
+          "oklch(49.3% 0 0)",
+          "oklch(60.7% 0 0)",
+          "oklch(72.1% 0 0)",
+          "oklch(83.6% 0 0)",
+          "oklch(95% 0 0)"
+        ]
+      },
+      "ink-secondary": {
+        "role": "neutral",
+        "displayName": "Encre seconde",
+        "canonical": "#4d4c48",
+        "oklch": "oklch(41.6% 0.0067 95.2)",
+        "tonalRamp": [
+          "oklch(15% 0.001 95.2)",
+          "oklch(26.4% 0.0027 95.2)",
+          "oklch(37.9% 0.0046 95.2)",
+          "oklch(49.3% 0.0065 95.2)",
+          "oklch(60.7% 0.0065 95.2)",
+          "oklch(72.1% 0.0046 95.2)",
+          "oklch(83.6% 0.0027 95.2)",
+          "oklch(95% 0.001 95.2)"
+        ]
+      },
+      "ink-muted": {
+        "role": "neutral",
+        "displayName": "Encre éteinte",
+        "canonical": "#5f5e5a",
+        "oklch": "oklch(48.2% 0.0064 95.2)",
+        "tonalRamp": [
+          "oklch(15% 0.001 95.2)",
+          "oklch(26.4% 0.0026 95.2)",
+          "oklch(37.9% 0.0045 95.2)",
+          "oklch(49.3% 0.0063 95.2)",
+          "oklch(60.7% 0.0063 95.2)",
+          "oklch(72.1% 0.0045 95.2)",
+          "oklch(83.6% 0.0026 95.2)",
+          "oklch(95% 0.001 95.2)"
+        ]
+      },
+      "paper": {
+        "role": "neutral",
+        "displayName": "Papier",
+        "canonical": "#ffffff",
+        "oklch": "oklch(100% 0 89.9)",
+        "tonalRamp": [
+          "oklch(15% 0 89.9)",
+          "oklch(26.4% 0 89.9)",
+          "oklch(37.9% 0 89.9)",
+          "oklch(49.3% 0 89.9)",
+          "oklch(60.7% 0 89.9)",
+          "oklch(72.1% 0 89.9)",
+          "oklch(83.6% 0 89.9)",
+          "oklch(95% 0 89.9)"
+        ]
+      },
+      "wash": {
+        "role": "neutral",
+        "displayName": "Lavis",
+        "canonical": "#f6f6f3",
+        "oklch": "oklch(97.2% 0.004 106.5)",
+        "tonalRamp": [
+          "oklch(15% 0.0006 106.5)",
+          "oklch(26.4% 0.0016 106.5)",
+          "oklch(37.9% 0.0028 106.5)",
+          "oklch(49.3% 0.0039 106.5)",
+          "oklch(60.7% 0.0039 106.5)",
+          "oklch(72.1% 0.0028 106.5)",
+          "oklch(83.6% 0.0016 106.5)",
+          "oklch(95% 0.0006 106.5)"
+        ]
+      },
+      "accent-soft": {
+        "role": "neutral",
+        "displayName": "Lavis de ligne active",
+        "canonical": "#f1f1ee",
+        "oklch": "oklch(95.7% 0.004 106.5)",
+        "tonalRamp": [
+          "oklch(15% 0.0006 106.5)",
+          "oklch(26.4% 0.0016 106.5)",
+          "oklch(37.9% 0.0028 106.5)",
+          "oklch(49.3% 0.0039 106.5)",
+          "oklch(60.7% 0.0039 106.5)",
+          "oklch(72.1% 0.0028 106.5)",
+          "oklch(83.6% 0.0016 106.5)",
+          "oklch(95% 0.0006 106.5)"
+        ]
+      },
+      "rule": {
+        "role": "neutral",
+        "displayName": "Filet",
+        "canonical": "#d6d5cf",
+        "oklch": "oklch(87.2% 0.0082 98.9)",
+        "tonalRamp": [
+          "oklch(15% 0.0012 98.9)",
+          "oklch(26.4% 0.0034 98.9)",
+          "oklch(37.9% 0.0057 98.9)",
+          "oklch(49.3% 0.0081 98.9)",
+          "oklch(60.7% 0.0081 98.9)",
+          "oklch(72.1% 0.0057 98.9)",
+          "oklch(83.6% 0.0034 98.9)",
+          "oklch(95% 0.0012 98.9)"
+        ]
+      },
+      "hairline": {
+        "role": "neutral",
+        "displayName": "Filet fin",
+        "canonical": "#e2e1dc",
+        "oklch": "oklch(90.9% 0.0068 97.4)",
+        "tonalRamp": [
+          "oklch(15% 0.001 97.4)",
+          "oklch(26.4% 0.0028 97.4)",
+          "oklch(37.9% 0.0047 97.4)",
+          "oklch(49.3% 0.0067 97.4)",
+          "oklch(60.7% 0.0067 97.4)",
+          "oklch(72.1% 0.0047 97.4)",
+          "oklch(83.6% 0.0028 97.4)",
+          "oklch(95% 0.001 97.4)"
+        ]
+      },
+      "strong-line": {
+        "role": "neutral",
+        "displayName": "Filet appuyé",
+        "canonical": "#c9c8c1",
+        "oklch": "oklch(83.2% 0.0097 100)",
+        "tonalRamp": [
+          "oklch(15% 0.0015 100)",
+          "oklch(26.4% 0.004 100)",
+          "oklch(37.9% 0.0067 100)",
+          "oklch(49.3% 0.0095 100)",
+          "oklch(60.7% 0.0095 100)",
+          "oklch(72.1% 0.0067 100)",
+          "oklch(83.6% 0.004 100)",
+          "oklch(95% 0.0015 100)"
+        ]
+      },
+      "sea": {
+        "role": "neutral",
+        "displayName": "Mer plate",
+        "canonical": "#f3f5f7",
+        "oklch": "oklch(96.9% 0.0034 247.9)",
+        "tonalRamp": [
+          "oklch(15% 0.0005 247.9)",
+          "oklch(26.4% 0.0014 247.9)",
+          "oklch(37.9% 0.0024 247.9)",
+          "oklch(49.3% 0.0034 247.9)",
+          "oklch(60.7% 0.0034 247.9)",
+          "oklch(72.1% 0.0024 247.9)",
+          "oklch(83.6% 0.0014 247.9)",
+          "oklch(95% 0.0005 247.9)"
+        ]
+      },
+      "graticule": {
+        "role": "neutral",
+        "displayName": "Graticule",
+        "canonical": "#e3e7eb",
+        "oklch": "oklch(92.6% 0.0069 247.9)",
+        "tonalRamp": [
+          "oklch(15% 0.001 247.9)",
+          "oklch(26.4% 0.0028 247.9)",
+          "oklch(37.9% 0.0048 247.9)",
+          "oklch(49.3% 0.0068 247.9)",
+          "oklch(60.7% 0.0068 247.9)",
+          "oklch(72.1% 0.0048 247.9)",
+          "oklch(83.6% 0.0028 247.9)",
+          "oklch(95% 0.001 247.9)"
+        ]
+      },
+      "land": {
+        "role": "neutral",
+        "displayName": "Terre",
+        "canonical": "#e8e7e2",
+        "oklch": "oklch(92.7% 0.0068 97.4)",
+        "tonalRamp": [
+          "oklch(15% 0.001 97.4)",
+          "oklch(26.4% 0.0028 97.4)",
+          "oklch(37.9% 0.0047 97.4)",
+          "oklch(49.3% 0.0067 97.4)",
+          "oklch(60.7% 0.0067 97.4)",
+          "oklch(72.1% 0.0047 97.4)",
+          "oklch(83.6% 0.0028 97.4)",
+          "oklch(95% 0.001 97.4)"
+        ]
+      },
+      "land-receded": {
+        "role": "neutral",
+        "displayName": "Terre en retrait",
+        "canonical": "#ecebe6",
+        "oklch": "oklch(93.9% 0.0068 97.4)",
+        "tonalRamp": [
+          "oklch(15% 0.001 97.4)",
+          "oklch(26.4% 0.0028 97.4)",
+          "oklch(37.9% 0.0047 97.4)",
+          "oklch(49.3% 0.0066 97.4)",
+          "oklch(60.7% 0.0066 97.4)",
+          "oklch(72.1% 0.0047 97.4)",
+          "oklch(83.6% 0.0028 97.4)",
+          "oklch(95% 0.001 97.4)"
+        ]
+      },
+      "land-explored": {
+        "role": "neutral",
+        "displayName": "Terre explorée",
+        "canonical": "#fbfbf9",
+        "oklch": "oklch(98.8% 0.0026 106.4)",
+        "tonalRamp": [
+          "oklch(15% 0.0004 106.4)",
+          "oklch(26.4% 0.0011 106.4)",
+          "oklch(37.9% 0.0018 106.4)",
+          "oklch(49.3% 0.0026 106.4)",
+          "oklch(60.7% 0.0026 106.4)",
+          "oklch(72.1% 0.0018 106.4)",
+          "oklch(83.6% 0.0011 106.4)",
+          "oklch(95% 0.0004 106.4)"
+        ]
+      },
+      "focus": {
+        "role": "functional",
+        "displayName": "Bleu de focus",
+        "canonical": "#0072b2",
+        "oklch": "oklch(53.2% 0.1313 244)",
+        "tonalRamp": [
+          "oklch(15% 0.0197 244)",
+          "oklch(26.4% 0.0539 244)",
+          "oklch(37.9% 0.0914 244)",
+          "oklch(49.3% 0.129 244)",
+          "oklch(60.7% 0.129 244)",
+          "oklch(72.1% 0.0914 244)",
+          "oklch(83.6% 0.0539 244)",
+          "oklch(95% 0.0197 244)"
+        ]
+      },
+      "warning-bg": {
+        "role": "functional",
+        "displayName": "Fond d’avertissement",
+        "canonical": "#fdf3dc",
+        "oklch": "oklch(96.6% 0.032 87.3)",
+        "tonalRamp": [
+          "oklch(15% 0.0048 87.3)",
+          "oklch(26.4% 0.0132 87.3)",
+          "oklch(37.9% 0.0223 87.3)",
+          "oklch(49.3% 0.0315 87.3)",
+          "oklch(60.7% 0.0315 87.3)",
+          "oklch(72.1% 0.0223 87.3)",
+          "oklch(83.6% 0.0132 87.3)",
+          "oklch(95% 0.0048 87.3)"
+        ]
+      },
+      "warning-line": {
+        "role": "functional",
+        "displayName": "Filet d’avertissement",
+        "canonical": "#e6c36a",
+        "oklch": "oklch(82.9% 0.1155 88.3)",
+        "tonalRamp": [
+          "oklch(15% 0.0173 88.3)",
+          "oklch(26.4% 0.0474 88.3)",
+          "oklch(37.9% 0.0804 88.3)",
+          "oklch(49.3% 0.1134 88.3)",
+          "oklch(60.7% 0.1134 88.3)",
+          "oklch(72.1% 0.0804 88.3)",
+          "oklch(83.6% 0.0474 88.3)",
+          "oklch(95% 0.0173 88.3)"
+        ]
+      },
+      "delta-worse": {
+        "role": "functional",
+        "displayName": "Écart défavorable",
+        "canonical": "#9b2c12",
+        "oklch": "oklch(46.2% 0.1512 34.1)",
+        "tonalRamp": [
+          "oklch(15% 0.0227 34.1)",
+          "oklch(26.4% 0.0621 34.1)",
+          "oklch(37.9% 0.1053 34.1)",
+          "oklch(49.3% 0.1485 34.1)",
+          "oklch(60.7% 0.1485 34.1)",
+          "oklch(72.1% 0.1053 34.1)",
+          "oklch(83.6% 0.0621 34.1)",
+          "oklch(95% 0.0227 34.1)"
+        ]
+      },
+      "delta-better": {
+        "role": "functional",
+        "displayName": "Écart favorable",
+        "canonical": "#1f6b3a",
+        "oklch": "oklch(46.9% 0.1076 151.4)",
+        "tonalRamp": [
+          "oklch(15% 0.0161 151.4)",
+          "oklch(26.4% 0.0442 151.4)",
+          "oklch(37.9% 0.0749 151.4)",
+          "oklch(49.3% 0.1056 151.4)",
+          "oklch(60.7% 0.1056 151.4)",
+          "oklch(72.1% 0.0749 151.4)",
+          "oklch(83.6% 0.0442 151.4)",
+          "oklch(95% 0.0161 151.4)"
+        ]
+      },
+      "data-blue": {
+        "role": "data",
+        "displayName": "Bleu des données",
+        "canonical": "#1f5f99",
+        "oklch": "oklch(47.5% 0.1134 249.8)",
+        "tonalRamp": [
+          "oklch(15% 0.017 249.8)",
+          "oklch(26.4% 0.0466 249.8)",
+          "oklch(37.9% 0.079 249.8)",
+          "oklch(49.3% 0.1114 249.8)",
+          "oklch(60.7% 0.1114 249.8)",
+          "oklch(72.1% 0.079 249.8)",
+          "oklch(83.6% 0.0466 249.8)",
+          "oklch(95% 0.017 249.8)"
+        ],
+        "inherited": "src/modules/map/map.css (--cv-data)",
+        "note": "La rampe de magnitude elle-même est d3.interpolateBlues de 0,25 à 1 (extensions.dataRamp)."
+      },
+      "data-blue-soft": {
+        "role": "data",
+        "displayName": "Bleu des données, fenêtre",
+        "canonical": "#eaf1f8",
+        "oklch": "oklch(95.5% 0.012 248)",
+        "tonalRamp": [
+          "oklch(15% 0.0018 248)",
+          "oklch(26.4% 0.0049 248)",
+          "oklch(37.9% 0.0084 248)",
+          "oklch(49.3% 0.0118 248)",
+          "oklch(60.7% 0.0118 248)",
+          "oklch(72.1% 0.0084 248)",
+          "oklch(83.6% 0.0049 248)",
+          "oklch(95% 0.0018 248)"
+        ],
+        "inherited": "src/modules/map/map.css (--cv-data-soft)"
+      },
+      "data-point": {
+        "role": "data",
+        "displayName": "Point de base",
+        "canonical": "#2f6496",
+        "oklch": "oklch(49.1% 0.0984 249.3)",
+        "tonalRamp": [
+          "oklch(15% 0.0148 249.3)",
+          "oklch(26.4% 0.0404 249.3)",
+          "oklch(37.9% 0.0685 249.3)",
+          "oklch(49.3% 0.0967 249.3)",
+          "oklch(60.7% 0.0967 249.3)",
+          "oklch(72.1% 0.0685 249.3)",
+          "oklch(83.6% 0.0404 249.3)",
+          "oklch(95% 0.0148 249.3)"
+        ],
+        "inherited": "src/modules/map/globe.ts (POINT_BASE)"
+      },
+      "data-zero": {
+        "role": "data",
+        "displayName": "Zéro",
+        "canonical": "#efeeea",
+        "oklch": "oklch(94.9% 0.0054 95.1)",
+        "tonalRamp": [
+          "oklch(15% 0.0008 95.1)",
+          "oklch(26.4% 0.0022 95.1)",
+          "oklch(37.9% 0.0038 95.1)",
+          "oklch(49.3% 0.0053 95.1)",
+          "oklch(60.7% 0.0053 95.1)",
+          "oklch(72.1% 0.0038 95.1)",
+          "oklch(83.6% 0.0022 95.1)",
+          "oklch(95% 0.0008 95.1)"
+        ],
+        "inherited": "src/core/palette.ts (gelé, D19 à D22)"
+      },
+      "data-nodata-stroke": {
+        "role": "data",
+        "displayName": "Hachure « pas de donnée »",
+        "canonical": "#8c8c86",
+        "oklch": "oklch(63.8% 0.0088 106.6)",
+        "tonalRamp": [
+          "oklch(15% 0.0013 106.6)",
+          "oklch(26.4% 0.0036 106.6)",
+          "oklch(37.9% 0.0061 106.6)",
+          "oklch(49.3% 0.0086 106.6)",
+          "oklch(60.7% 0.0086 106.6)",
+          "oklch(72.1% 0.0061 106.6)",
+          "oklch(83.6% 0.0036 106.6)",
+          "oklch(95% 0.0013 106.6)"
+        ],
+        "inherited": "src/core/palette.ts (gelé, D19 à D22)"
+      },
+      "data-other": {
+        "role": "data",
+        "displayName": "Autres types",
+        "canonical": "#8a8983",
+        "oklch": "oklch(62.9% 0.0089 99)",
+        "tonalRamp": [
+          "oklch(15% 0.0013 99)",
+          "oklch(26.4% 0.0037 99)",
+          "oklch(37.9% 0.0062 99)",
+          "oklch(49.3% 0.0087 99)",
+          "oklch(60.7% 0.0087 99)",
+          "oklch(72.1% 0.0062 99)",
+          "oklch(83.6% 0.0037 99)",
+          "oklch(95% 0.0013 99)"
+        ],
+        "inherited": "src/core/palette.ts (gelé, D19 à D22)"
+      },
+      "data-identity-1": {
+        "role": "data",
+        "displayName": "Identité 1, vert bleuté",
+        "canonical": "#009E73",
+        "oklch": "oklch(62% 0.1295 165.5)",
+        "tonalRamp": [
+          "oklch(15% 0.0194 165.5)",
+          "oklch(26.4% 0.0532 165.5)",
+          "oklch(37.9% 0.0902 165.5)",
+          "oklch(49.3% 0.1272 165.5)",
+          "oklch(60.7% 0.1272 165.5)",
+          "oklch(72.1% 0.0902 165.5)",
+          "oklch(83.6% 0.0532 165.5)",
+          "oklch(95% 0.0194 165.5)"
+        ],
+        "inherited": "src/core/palette.ts (gelé, D19 à D22)"
+      },
+      "data-identity-2": {
+        "role": "data",
+        "displayName": "Identité 2, vermillon",
+        "canonical": "#D55E00",
+        "oklch": "oklch(62.1% 0.1705 47.5)",
+        "tonalRamp": [
+          "oklch(15% 0.0256 47.5)",
+          "oklch(26.4% 0.07 47.5)",
+          "oklch(37.9% 0.1187 47.5)",
+          "oklch(49.3% 0.1674 47.5)",
+          "oklch(60.7% 0.1674 47.5)",
+          "oklch(72.1% 0.1187 47.5)",
+          "oklch(83.6% 0.07 47.5)",
+          "oklch(95% 0.0256 47.5)"
+        ],
+        "inherited": "src/core/palette.ts (gelé, D19 à D22)"
+      },
+      "data-identity-3": {
+        "role": "data",
+        "displayName": "Identité 3, pourpre",
+        "canonical": "#CC79A7",
+        "oklch": "oklch(67.9% 0.1177 346.3)",
+        "tonalRamp": [
+          "oklch(15% 0.0177 346.3)",
+          "oklch(26.4% 0.0484 346.3)",
+          "oklch(37.9% 0.082 346.3)",
+          "oklch(49.3% 0.1156 346.3)",
+          "oklch(60.7% 0.1156 346.3)",
+          "oklch(72.1% 0.082 346.3)",
+          "oklch(83.6% 0.0484 346.3)",
+          "oklch(95% 0.0177 346.3)"
+        ],
+        "inherited": "src/core/palette.ts (gelé, D19 à D22)"
+      },
+      "data-identity-4": {
+        "role": "data",
+        "displayName": "Identité 4, orangé",
+        "canonical": "#E69F00",
+        "oklch": "oklch(75.3% 0.1576 76.8)",
+        "tonalRamp": [
+          "oklch(15% 0.0236 76.8)",
+          "oklch(26.4% 0.0647 76.8)",
+          "oklch(37.9% 0.1098 76.8)",
+          "oklch(49.3% 0.1548 76.8)",
+          "oklch(60.7% 0.1548 76.8)",
+          "oklch(72.1% 0.1098 76.8)",
+          "oklch(83.6% 0.0647 76.8)",
+          "oklch(95% 0.0236 76.8)"
+        ],
+        "inherited": "src/core/palette.ts (gelé, D19 à D22)"
+      },
+      "data-attack-bombing": {
+        "role": "data",
+        "displayName": "Attentat à l’explosif",
+        "canonical": "#0072B2",
+        "oklch": "oklch(53.2% 0.1313 244)",
+        "tonalRamp": [
+          "oklch(15% 0.0197 244)",
+          "oklch(26.4% 0.0539 244)",
+          "oklch(37.9% 0.0914 244)",
+          "oklch(49.3% 0.129 244)",
+          "oklch(60.7% 0.129 244)",
+          "oklch(72.1% 0.0914 244)",
+          "oklch(83.6% 0.0539 244)",
+          "oklch(95% 0.0197 244)"
+        ],
+        "inherited": "src/core/palette.ts (gelé, D19 à D22)",
+        "note": "Les cinq couleurs de ATTACK_TYPE_COLORS : #0072B2, #E69F00, #009E73, #D55E00, #CC79A7."
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Titre chiffré",
+        "purpose": "Le titre de la page de garde, « 181 691 attentats en 48 ans »."
+      },
+      "headline": {
+        "displayName": "Titre-question",
+        "purpose": "Question de chaque planche ; 22px sous 720 px."
+      },
+      "numeral": {
+        "displayName": "Folio",
+        "purpose": "Numéros de la table des planches ; 1,6 em du titre de planche en 260 ; folio d’en-tête 24px en 300."
+      },
+      "title": {
+        "displayName": "Titre de l’atlas",
+        "purpose": "Titre dans l’en-tête ; 20px sous 720 px."
+      },
+      "title-question": {
+        "displayName": "Question de table",
+        "purpose": "Question dans la table des planches."
+      },
+      "title-panel": {
+        "displayName": "Titre de panneau",
+        "purpose": "Titre du panneau de la vue carte."
+      },
+      "figure": {
+        "displayName": "Chiffre",
+        "purpose": "Valeurs du panneau et du pays survolé."
+      },
+      "lede": {
+        "displayName": "Phrase de garde",
+        "purpose": "La phrase sous le titre chiffré, 34 em au plus ; 17px sur téléphone."
+      },
+      "body": {
+        "displayName": "Texte du shell",
+        "purpose": "Base du shell."
+      },
+      "body-view": {
+        "displayName": "Texte de vue",
+        "purpose": "Base de la vue carte, chiffres tabulaires."
+      },
+      "label": {
+        "displayName": "Étiquette",
+        "purpose": "Cartouche, contrôles, pied de page (13px), sources (14px)."
+      },
+      "caption": {
+        "displayName": "Légende",
+        "purpose": "Notes et légendes de la vue (12px)."
+      }
+    },
+    "dataRamp": {
+      "name": "magnitude",
+      "value": "d3.interpolateBlues(0.25 + 0.75 * t)",
+      "source": "src/core/palette.ts",
+      "purpose": "Rampe séquentielle monotone en clarté ; échelle logarithmique sur la page de garde."
+    },
+    "shadows": [],
+    "elevationNote": "Système plat : aucune ombre portée (--cv-shadow: none). L’ombre CSS ne sert qu’à tracer des filets (folios) et l’anneau d’un point de légende.",
+    "rules": [
+      {
+        "name": "frame",
+        "value": "1px solid #1d1d1b",
+        "purpose": "Cadre de planche, cartouche, légende de la vue, bas de l’en-tête, haut du pied de page, panneaux flottants, infobulle."
+      },
+      {
+        "name": "rule",
+        "value": "1px solid #d6d5cf",
+        "purpose": "Séparateurs du shell : table des planches, tête et source de planche, mise en garde."
+      },
+      {
+        "name": "hairline",
+        "value": "1px solid #e2e1dc",
+        "purpose": "Séparateurs internes de la vue carte."
+      },
+      {
+        "name": "control",
+        "value": "1px solid #c9c8c1",
+        "purpose": "Bord des champs, segments et boutons outils."
+      },
+      {
+        "name": "folio-hover",
+        "value": "box-shadow: inset 0 -1px 0 #1d1d1b",
+        "purpose": "Survol d’un folio."
+      },
+      {
+        "name": "folio-current",
+        "value": "box-shadow: inset 0 -3px 0 #1d1d1b",
+        "purpose": "Planche courante, posée sur le filet de l’en-tête."
+      },
+      {
+        "name": "preparing",
+        "value": "text-decoration: underline dotted 1.5px (offset 6px) ; border-bottom: 1.5px dotted #4d4c48",
+        "purpose": "Planche en préparation."
+      },
+      {
+        "name": "window",
+        "value": "1.5px solid #1d1d1b",
+        "purpose": "Fenêtre de période dans la frise et les bandes."
+      },
+      {
+        "name": "method-break",
+        "value": "1.5px dashed #5f5e5a",
+        "purpose": "Changements de méthode de collecte (1998, 2012)."
+      }
+    ],
+    "focus": [
+      {
+        "name": "focus-shell",
+        "value": "outline: 2px solid #0072b2; outline-offset: 3px",
+        "purpose": "Focus clavier du shell."
+      },
+      {
+        "name": "focus-view",
+        "value": "outline: 2px solid #0072b2; outline-offset: 2px",
+        "purpose": "Focus clavier de la vue carte."
+      },
+      {
+        "name": "focus-inset",
+        "value": "outline-offset: -2px (globe : -3px)",
+        "purpose": "Éléments pleine largeur : folios, lignes de table, carte de couverture, globe."
+      }
+    ],
+    "motion": [
+      {
+        "name": "turn",
+        "value": "200ms ease-out, opacity 0 → 1",
+        "purpose": "Tourner la page : changement de page ou de planche (--turn)."
+      },
+      {
+        "name": "state-shell",
+        "value": "160ms ease-out",
+        "purpose": "Folios, bouton primaire, lignes de table."
+      },
+      {
+        "name": "state-view",
+        "value": "150ms ease-out",
+        "purpose": "Lire, segments, boutons outils."
+      },
+      {
+        "name": "ease-out-quart",
+        "value": "cubic-bezier(0.25, 1, 0.5, 1)",
+        "purpose": "Montée du panneau (200ms) et des filtres (180ms), glissement de la fenêtre (300ms), hauteur des barres (200ms), disparition de l’astuce (300ms)."
+      },
+      {
+        "name": "rise",
+        "value": "opacity 0 → 1, translate 0 6px → 0",
+        "purpose": "Contenu du panneau à chaque niveau, panneau de filtres."
+      },
+      {
+        "name": "breathe",
+        "value": "1.6s ease-in-out infinite alternate, opacity 0.55 → 1",
+        "purpose": "Silhouette du globe pendant le chargement."
+      },
+      {
+        "name": "reduced-motion",
+        "value": "@media (prefers-reduced-motion: reduce)",
+        "purpose": "Coupe toutes les transitions et animations ci-dessus."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "cover-stack",
+        "value": "1100px",
+        "purpose": "Page de garde en une colonne."
+      },
+      {
+        "name": "view-stack",
+        "value": "980px",
+        "purpose": "Vue carte empilée."
+      },
+      {
+        "name": "phone",
+        "value": "720px",
+        "purpose": "Marges de 16 px, en-tête de 64 px, folios en bande, cartouche sous la carte."
+      },
+      {
+        "name": "globe-phone",
+        "value": "640px",
+        "purpose": "Globe avec bandes pour ses calques."
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Bouton primaire",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "L’action principale de la page de garde, pleine d’encre avec flèche.",
+      "html": "<button class=\"ds-btn-primary\" type=\"button\"><span>Ouvrir la planche 1</span><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M4 12h15M13 6l6 6-6 6\"/></svg></button>",
+      "css": ".ds-btn-primary{display:inline-flex;align-items:center;gap:12px;min-height:48px;padding:0 18px 0 20px;border:1px solid #1d1d1b;border-radius:2px;background:#1d1d1b;color:#fff;font:620 17px/1.5 'Libre Franklin Variable',system-ui,sans-serif;cursor:pointer;transition:background-color 160ms ease-out}.ds-btn-primary svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:square;transition:transform 160ms ease-out}.ds-btn-primary:hover{background:#000}.ds-btn-primary:hover svg{transform:translateX(3px)}.ds-btn-primary:active{transform:translateY(1px)}.ds-btn-primary:focus-visible{outline:2px solid #0072b2;outline-offset:3px}"
+    },
+    {
+      "name": "Bouton outil",
+      "kind": "button",
+      "refersTo": "button-tool",
+      "description": "Action secondaire de la frise, icône et mot, à filet.",
+      "html": "<button class=\"ds-btn-tool\" type=\"button\" aria-expanded=\"false\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M12 4v11M7 9l5-5 5 5M5 14v6h14v-6\"/></svg>Partager</button>",
+      "css": ".ds-btn-tool{display:inline-flex;align-items:center;gap:6px;min-height:36px;padding:5px 12px 5px 10px;border:1px solid #c9c8c1;border-radius:2px;background:#fff;color:#1d1d1b;font:400 13.5px/1.4 'Libre Franklin Variable',system-ui,sans-serif;cursor:pointer;transition:border-color 150ms ease-out,background-color 150ms ease-out}.ds-btn-tool svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:square}.ds-btn-tool:hover{border-color:#1d1d1b}.ds-btn-tool[aria-expanded=true]{border-color:#1d1d1b;background:#f6f6f3}.ds-btn-tool:focus-visible{outline:2px solid #0072b2;outline-offset:2px}"
+    },
+    {
+      "name": "Contrôle segmenté",
+      "kind": "chip",
+      "refersTo": "segmented-option",
+      "description": "Choix de mesure ou de calque ; l’option active est pleine d’encre.",
+      "html": "<div class=\"ds-seg\" role=\"group\"><button class=\"is-active\" type=\"button\">Incidents</button><button type=\"button\">Morts</button><button type=\"button\">Blessés</button></div>",
+      "css": ".ds-seg{display:inline-flex;padding:2px;border:1px solid #c9c8c1;border-radius:2px;font:400 14px/1.4 'Libre Franklin Variable',system-ui,sans-serif}.ds-seg button{min-height:34px;padding:6px 11px;border:0;border-radius:2px;background:none;color:#4d4c48;font:inherit;cursor:pointer;transition:background-color 150ms ease-out,color 150ms ease-out}.ds-seg button:hover{color:#1d1d1b}.ds-seg button.is-active{background:#1d1d1b;color:#fff;font-weight:600}.ds-seg button:focus-visible{outline:2px solid #0072b2;outline-offset:2px}"
+    },
+    {
+      "name": "Champ de recherche",
+      "kind": "input",
+      "refersTo": "input-search",
+      "description": "Recherche de pays dans le panneau.",
+      "html": "<label class=\"ds-field\">Chercher un pays<input type=\"search\" placeholder=\"Irak, Colombie…\"></label>",
+      "css": ".ds-field{display:grid;gap:4px;font:400 13px/1.4 'Libre Franklin Variable',system-ui,sans-serif;color:#4d4c48}.ds-field input{min-height:40px;padding:8px 12px;border:1px solid #c9c8c1;border-radius:2px;background:#fff;font:inherit;font-size:14px;color:#1d1d1b}.ds-field input::placeholder{color:#5f5e5a}.ds-field input:focus-visible{outline:2px solid #0072b2;outline-offset:2px}"
+    },
+    {
+      "name": "Folios",
+      "kind": "nav",
+      "refersTo": "folio",
+      "description": "Navigation de l’en-tête : numéro léger, question grasse, filet de 3 px pour la planche courante, pointillé pour une planche en préparation.",
+      "html": "<nav class=\"ds-folios\" aria-label=\"Planches\"><button class=\"ds-folio\" aria-current=\"page\"><span class=\"n\">1</span><span class=\"q\">Où ?</span></button><button class=\"ds-folio is-preparing\"><span class=\"n\">2</span><span class=\"q\">Qui ?</span></button><button class=\"ds-folio is-preparing\"><span class=\"n\">3</span><span class=\"q\">Comment ?</span></button></nav>",
+      "css": ".ds-folios{display:flex;gap:4px;border-bottom:1px solid #1d1d1b;font-family:'Libre Franklin Variable',system-ui,sans-serif}.ds-folio{display:inline-grid;grid-auto-flow:column;align-items:baseline;align-content:center;gap:8px;min-height:56px;padding:0 14px;border:0;background:none;color:#1d1d1b;font:inherit;font-size:18px;cursor:pointer;box-shadow:inset 0 0 0 transparent;transition:box-shadow 160ms ease-out}.ds-folio .n{font-size:24px;font-weight:300;line-height:1;font-variant-numeric:tabular-nums}.ds-folio .q{font-weight:640}.ds-folio:hover{box-shadow:inset 0 -1px 0 #1d1d1b}.ds-folio[aria-current=page]{box-shadow:inset 0 -3px 0 #1d1d1b}.ds-folio.is-preparing .q{color:#4d4c48;text-decoration:underline dotted 1.5px;text-underline-offset:6px}.ds-folio:focus-visible{outline:2px solid #0072b2;outline-offset:-2px}"
+    },
+    {
+      "name": "Ligne de table des planches",
+      "kind": "nav",
+      "refersTo": "toc-row",
+      "description": "Une planche choisie par sa question, sur la page de garde.",
+      "html": "<ol class=\"ds-toc\"><li><button class=\"ds-toc-row\"><span class=\"n\">1</span><span class=\"t\"><span class=\"l\"><span class=\"q\">Où ?</span><span class=\"name\">Carte par pays</span></span><span class=\"s\">Le globe des attentats, du monde au pays et à l’incident.</span></span></button></li><li><button class=\"ds-toc-row\"><span class=\"n\">2</span><span class=\"t\"><span class=\"l\"><span class=\"q\">Qui ?</span><span class=\"name\">Leaderboard</span><span class=\"state\">en préparation</span></span><span class=\"s\">Les pays et les organisations en tête, année après année.</span></span></button></li></ol>",
+      "css": ".ds-toc{margin:0;padding:0;list-style:none;border-top:1px solid #1d1d1b;font-family:'Libre Franklin Variable',system-ui,sans-serif}.ds-toc li+li{border-top:1px solid #d6d5cf}.ds-toc-row{display:grid;grid-template-columns:56px minmax(0,1fr);align-items:baseline;width:100%;padding:10px 8px 10px 0;border:0;background:none;color:#1d1d1b;font:inherit;text-align:left;cursor:pointer;transition:background-color 160ms ease-out}.ds-toc-row:hover{background:#f6f6f3}.ds-toc-row:hover .q{text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:4px}.ds-toc-row:focus-visible{outline:2px solid #0072b2;outline-offset:-2px}.ds-toc-row .n{font-size:40px;font-weight:260;line-height:.9;font-variant-numeric:tabular-nums}.ds-toc-row .t{display:grid;gap:2px}.ds-toc-row .l{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 12px}.ds-toc-row .q{font-size:22px;font-weight:720;line-height:1.2}.ds-toc-row .name{font-size:14px;color:#5f5e5a}.ds-toc-row .state{font-size:13px;color:#4d4c48;border-bottom:1.5px dotted #4d4c48}.ds-toc-row .s{font-size:15px;color:#4d4c48}"
+    },
+    {
+      "name": "Cadre de planche",
+      "kind": "card",
+      "refersTo": "frame-planche",
+      "description": "Le cadre d’encre de chaque vue : numéro et question, nom, corps, source.",
+      "html": "<article class=\"ds-planche\"><header><h2><span class=\"n\">1</span>Où frappe le terrorisme ?</h2><p>Carte par pays</p></header><div class=\"body\"></div><p class=\"src\">Source : Global Terrorism Database.</p></article>",
+      "css": ".ds-planche{padding:14px 20px 10px;border:1px solid #1d1d1b;background:#fff;color:#1d1d1b;font-family:'Libre Franklin Variable',system-ui,sans-serif}.ds-planche header{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:6px 24px;padding-bottom:12px;margin-bottom:14px;border-bottom:1px solid #d6d5cf}.ds-planche h2{display:flex;align-items:baseline;gap:14px;margin:0;font-size:28px;font-weight:720;letter-spacing:-.015em;line-height:1.15}.ds-planche h2 .n{font-size:1.6em;font-weight:260;letter-spacing:-.02em;line-height:.9;font-variant-numeric:tabular-nums}.ds-planche header p{margin:0;font-size:15px;color:#5f5e5a}.ds-planche .body{min-height:120px;background:#f3f5f7}.ds-planche .src{margin:10px 0 0;padding-top:8px;border-top:1px solid #d6d5cf;font-size:14px;color:#5f5e5a}"
+    },
+    {
+      "name": "Cartouche",
+      "kind": "custom",
+      "refersTo": "cartouche",
+      "description": "La légende de carte, encadrée d’encre sur fond papier.",
+      "html": "<div class=\"ds-cartouche\"><p class=\"t\">Attentats par pays, 1970–2017</p><div class=\"ramp\"></div><div class=\"ticks\"><span style=\"left:0\">1</span><span style=\"left:25%\">10</span><span style=\"left:50%\">100</span><span style=\"left:75%\">1 000</span></div><p class=\"note\">Échelle logarithmique ; maximum : 24 636.</p><p class=\"keys\"><span><i class=\"sw\" style=\"background:#efeeea\"></i>aucun attentat</span><span><i class=\"sw nd\"></i>pas de donnée</span></p></div>",
+      "css": ".ds-cartouche{width:296px;padding:12px 16px;border:1px solid #1d1d1b;background:#fff;font:400 13px/1.35 'Libre Franklin Variable',system-ui,sans-serif;color:#4d4c48}.ds-cartouche .t{margin:0 0 8px;font-size:14px;font-weight:680;color:#1d1d1b}.ds-cartouche .ramp{height:12px;background:linear-gradient(to right,#abd0e6,#6aaed6,#3787c0,#105ba4,#08306b)}.ds-cartouche .ticks{position:relative;height:18px;margin:0 0 4px;font-variant-numeric:tabular-nums}.ds-cartouche .ticks span{position:absolute;top:2px;transform:translateX(-50%)}.ds-cartouche .ticks span:first-child{transform:none}.ds-cartouche .note{margin:0 0 6px;color:#5f5e5a}.ds-cartouche .keys{display:flex;flex-wrap:wrap;gap:4px 14px;margin:0}.ds-cartouche .keys span{display:inline-flex;align-items:center;gap:6px}.ds-cartouche .sw{display:inline-block;width:14px;height:10px;border:1px solid #c9c8c1}.ds-cartouche .sw.nd{background:repeating-linear-gradient(45deg,#fff 0 2px,#8c8c86 2px 3px)}"
+    },
+    {
+      "name": "Puce de sélection",
+      "kind": "chip",
+      "refersTo": "chip",
+      "description": "Organisation retenue comme filtre, pleine d’encre.",
+      "html": "<button class=\"ds-chip\" type=\"button\">Boko Haram</button>",
+      "css": ".ds-chip{max-width:100%;overflow:hidden;padding:3px 9px;border:1px solid #1d1d1b;border-radius:2px;background:#1d1d1b;color:#fff;font:400 12px/1.4 'Libre Franklin Variable',system-ui,sans-serif;text-overflow:ellipsis;white-space:nowrap;cursor:pointer}.ds-chip:focus-visible{outline:2px solid #0072b2;outline-offset:2px}"
+    }
+  ],
+  "narrative": {
+    "northStar": "La planche d’atlas imprimé",
+    "overview": "Le site se lit comme un atlas thématique relié : une page de garde, puis une planche numérotée par vue, chacune titrée par sa question (1 Où ? 2 Qui ? 3 Comment ? 4 Quoi ?), avec sa carte, sa légende en cartouche et sa ligne de source. Le papier est blanc, l'encre presque noire, la terre gris clair. Tout ce qui structure la page est un filet d'encre d'un pixel ; rien ne flotte, rien n'est arrondi au-delà de 2 px, rien ne porte d'ombre portée.\n\nLa couleur appartient aux données. La rampe bleue de magnitude et les quatre identités Okabe–Ito non bleues sont les seuls signaux colorés à l'écran ; l'interface (états actifs, boutons, sélection, bords du globe) porte l'encre. Les seules exceptions chromatiques hors données sont fonctionnelles : le bleu du focus, l'ocre du bandeau d'avertissement, le rouge et le vert des écarts.\n\nUne seule famille, Libre Franklin en variable, fait tout le travail par contraste de graisse : gros folios très légers (260 à 300) contre des questions grasses (720 et plus). La densité est celle d'une planche imprimée : marges de 48 px, filets plutôt que boîtes, chiffres tabulaires partout où l'on compare. Ce monde remplace l'ancien shell (fond gris cassé, en-tête à onglets) : il ne doit pas y revenir.",
+    "keyCharacteristics": [
+      "Papier blanc, encre `#1d1d1b`, filets d'un pixel comme seule structure.",
+      "Cadres de planche et cartouches à filet d'encre, coins droits.",
+      "Une seule famille grotesque, folios légers contre questions grasses.",
+      "Couleur réservée aux données ; états actifs à l'encre.",
+      "Un mouvement signature : la page tourne (fondu de 200 ms)."
+    ],
+    "rules": [
+      {
+        "name": "The Encre pour l'interface Rule",
+        "body": "Tout état d'interface (actif, pressé, sélectionné, courant) se dit à l'encre, plein ou souligné. Une couleur de série ne colore jamais un texte ni un contrôle.",
+        "section": "colors"
+      },
+      {
+        "name": "The Couleur aux données Rule",
+        "body": "La rampe bleue et les identités ne servent qu'à encoder des données. Hors données, seuls le focus, l'avertissement et les écarts ont droit à une teinte.",
+        "section": "colors"
+      },
+      {
+        "name": "The Folio léger, question grasse Rule",
+        "body": "Un numéro de planche est toujours en graisse 260 à 300, sa question en 640 à 720. Le contraste de graisse, pas la couleur ni la taille seule, fait la hiérarchie.",
+        "section": "typography"
+      },
+      {
+        "name": "The Typographie française Rule",
+        "body": "Tout texte posé par le shell passe par `fr()` : apostrophe courbe, espace fine insécable avant ? ! ; et insécable avant :. La citation anglaise de la GTD est posée telle quelle.",
+        "section": "typography"
+      },
+      {
+        "name": "The Chiffres alignés Rule",
+        "body": "Partout où l'on compare des nombres (titres chiffrés, folios, légendes, tableaux, frise), les chiffres sont tabulaires.",
+        "section": "typography"
+      },
+      {
+        "name": "The Une feuille Rule",
+        "body": "La page de garde tient sur un écran de 1440 × 900 : planche 1, chiffres et table des planches ensemble.",
+        "section": "layout"
+      },
+      {
+        "name": "The Pas d'ombre Rule",
+        "body": "Rien ne s'élève au-dessus du papier. Un panneau flottant (filtres, aide, infobulle) se détache par un filet d'encre, pas par une ombre.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Deux pixels Rule",
+        "body": "Aucun coin arrondi au-delà de 2 px, sauf un cercle qui est une donnée ou le globe.",
+        "section": "shapes"
+      }
+    ],
+    "dos": [
+      "Do encadrer chaque vue d'un filet d'encre d'un pixel avec, dans l'ordre, numéro et question, nom de la vue, corps, ligne de source.",
+      "Do poser toute légende de carte dans un cartouche à coins droits, filet d'encre et fond papier.",
+      "Do dire un état actif à l'encre : plein (`#1d1d1b`, texte blanc) ou filet de 3 px.",
+      "Do composer les numéros de planche en 260 à 300 et les questions en 640 à 720, chiffres tabulaires.",
+      "Do passer tout texte du shell par `fr()` et garder la citation GTD en anglais, telle quelle, en pied de page.",
+      "Do distinguer « zéro » (aplat clair) et « pas de donnée » (hachures) sur toute carte et toute légende.",
+      "Do couper toute transition et animation sous `prefers-reduced-motion`."
+    ],
+    "donts": [
+      "Don't revenir à un en-tête à onglets posé sur un tableau de bord de cartes arrondies, ni au fond gris cassé de l'ancien shell.",
+      "Don't utiliser d'ombre portée ou de flou pour détacher un élément ; une ombre intérieure ne sert qu'à tracer un filet.",
+      "Don't arrondir un cadre ou un contrôle au-delà de 2 px.",
+      "Don't colorer un texte, un bouton ou un état d'interface avec une couleur de série ou la rampe bleue.",
+      "Don't introduire une deuxième famille de caractères, ni pour les titres ni sur le canevas.",
+      "Don't modifier la palette des données ici : elle vit dans `src/core/palette.ts`, gelé."
+    ]
+  }
+}

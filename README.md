@@ -74,7 +74,8 @@ src/core/            figé le 7 oct. ; modification par revue à 2 personnes
   dev/placeholder.ts module de substitution (à supprimer quand plus utilisé)
 src/modules/<vue>/   un dossier par étudiant : map, atlas, leaderboard, flow
 src/modules/index.ts registre (seul fichier autorisé à importer les dossiers de modules)
-src/shell/           page hôte : charge le dataset, possède le store, monte un module à la fois
+src/shell/           page hôte : charge le dataset, possède le store, monte un module à la fois ;
+                     page de garde et cadre « planche » de chaque vue (D23)
 preprocess/          Python : lecture du CSV, table des pays (mapping_pays.csv), écriture des JSON, tests pytest
   gtd_source.py      seul endroit où un nom de colonne source de la GTD apparaît
 docs/map-decisions.md journal des décisions D1–D11 (fond de carte, codes ISO, encodage, contrat, preprocess, tailles)

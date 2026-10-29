@@ -913,3 +913,76 @@ soutenance.
 compteur « Filtres 1 » avec Boko Haram, panneau de filtres et Échap, aide
 clavier et Espace, talibans survolés → Afghanistan et Pakistan cernés, clic sur
 2014 dans la courbe de l'Irak → période 2014.
+
+## D23. Le site en atlas thématique : page de garde et planches
+
+**Statut** : adoptée et implémentée le 2026-10-29 sur `feat/Alban_pays` (choix
+d'Alban, direction « Atlas thématique »). Touche le shell, partagé par
+l'équipe : à présenter aux auteurs des trois autres vues.
+
+**Contexte** : le shell était un en-tête à onglets (« Carte par pays »,
+« Atlas », « Leaderboard », « Diagramme de flux ») posé sur un fond gris, avec
+le nom de la base pour titre. Il ne disait ni le sujet ni ce que chaque vue
+permet de comprendre. Demande : un design sobre, fond blanc, qui met en avant
+la visualisation et la transmission d'information, ni « site vitrine » ni
+« tableau de bord ». Direction choisie : « Atlas thématique »
+(`.impeccable/surfaces/src-shell-main-ts.md`).
+
+**Décision** :
+
+- **Une planche par vue, nommée par sa question** (`src/shell/planches.ts`) :
+  1 Où ? (carte par pays), 2 Qui ? (leaderboard), 3 Comment ? (diagramme de
+  flux), 4 Quoi ? (atlas). L'en-tête porte le titre de l'atlas et les quatre
+  folios ; la planche courante est soulignée d'un filet épais, les planches
+  encore en squelette d'un pointillé. Les questions des planches 2 à 4 sont à
+  confirmer avec leurs auteurs.
+- **Page de garde courte** (`src/shell/cover.ts`) : « 181 691 attentats en
+  48 ans », une seule phrase avec les chiffres (morts connus, pays touchés) et
+  l'année 1993 qui manque, le
+  bouton « Ouvrir la planche 1 », la planche 1 en choroplèthe statique
+  (incidents par pays sur toute la base, échelle logarithmique, cartouche de
+  légende, sept pays les plus touchés étiquetés sans chevauchement), la table
+  des planches et la mise en garde sur les changements de méthode de 1998 et
+  2012. Le tout tient sur un écran de 1440 × 900. Elle lit les mêmes fichiers
+  que les vues.
+- **Cadre de planche** : un filet d'encre entoure chaque vue avec son titre
+  (numéro et question), le nom de la vue et sa ligne de source ; la citation
+  complète et la licence restent en pied de page (D17). Une planche en
+  squelette affiche les tâches qu'elle promet (`VIEW_TASKS`) ; l'état brut de
+  l'application est replié sous « État partagé (aide au développement) ».
+- **Typographie française** (`fr()` dans `src/shell/planches.ts`) : apostrophe
+  courbe, espace fine insécable avant ? ! ; et insécable avant :, pour tous les
+  textes posés par le shell (pas la citation anglaise de la GTD).
+- **Navigation** : la page de garde n'est pas une vue (les `VIEW_IDS` sont
+  fixés dans core et le hash vide désigne déjà la carte) ; la page de chaque
+  entrée d'historique est gardée dans `history.state`. Changer de planche crée
+  une entrée : Retour revient à la planche précédente, puis à la page de
+  garde ; un rechargement reste où il était ; un lien partagé ouvre
+  directement sa planche. Le focus passe au titre de la nouvelle page.
+- **Monde graphique** : papier blanc, encre `#1d1d1b`, filets d'un pixel,
+  coins de 2 px au plus, aucune ombre ; une seule famille, Libre Franklin
+  (OFL, `@fontsource-variable/libre-franklin`), y compris sur le canevas du
+  globe ; gros folios en graisse légère contre des questions en gras. La
+  couleur reste aux données (D19 à D22) : les états actifs sont à l'encre, les
+  barres de la frise gardent le bleu des données. Un seul mouvement : la
+  page tourne (fondu de 200 ms), coupé par `prefers-reduced-motion`.
+- **Vue carte** (`map.css`, `globe.ts`, `panel.ts`) : à l'intérieur du cadre,
+  le panneau et la frise sont séparés par des filets fins, la légende est un
+  cartouche d'encre, les contrôles segmentés sont à l'encre ; le globe a une
+  mer plate et un bord d'encre (plus d'éclairage ni d'ombre) ; ses étiquettes
+  sont redessinées une fois la police chargée ; le pays survolé s'affiche en
+  tête du panneau, dont le bas s'estompe quand il défile ; le fil d'Ariane est
+  masqué au niveau monde. Sur téléphone, le globe laisse une bande à ses
+  calques au lieu d'être couvert par la légende.
+
+**Arguments** : une question par planche oriente le lecteur vers une tâche
+(Munzner, *what–why–how*) avant toute technique ; la page de garde montre
+d'emblée une carte qui dit quelque chose, avec sa légende et sa source, comme
+une planche d'atlas imprimé ; réserver la couleur aux données garde le seul
+signal fort à l'écran pour l'information ; l'historique respecte le geste
+Retour du navigateur.
+
+**Vérification** : `npm test` (156 tests), `npm run build` ; navigateur à
+1440 × 900 et 390 × 844 : page de garde, planche 1, planche 2 en préparation,
+Retour planche 2 → planche 1 → page de garde, pas de défilement horizontal.
+Captures dans `.impeccable/review/`.
