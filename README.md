@@ -151,3 +151,11 @@ Les décisions sur les données (fond de carte, correspondance des pays, encodag
 - **Carte par pays** (D18) : tableau de bord centré sur les pays. Filtres croisés sur tous les panneaux, comparaison de 6 pays. La carte montre la choroplèthe, les incidents exacts et les liens par organisations communes ; s'y ajoutent chiffres clés, courbes, profils d'attaque, flux attaque → cible → arme, classement dynamique, organisations, incidents et fiches.
 - **Atlas, leaderboard, flux** : squelettes.
 - **Décisions ouvertes** : Porto Rico et îles Vierges (D11.3) ; publication en ligne des fichiers de données (D17).
+
+## Classement temporel — planche 4
+
+Le quatrième onglet (« Qui ? », `#v=leaderboard`) monte `src/modules/leaderboard/` dans le shell commun. Il reprend le thème clair de l’atlas, Libre Franklin et la palette partagée. L’atlas des incidents occupe la planche 2 ; le diagramme de flux reste en planche 3.
+
+`npm run data:prepare` appelle désormais le prétraitement commun et produit aussi `public/data/gtd/leaderboard.json`. Ce fichier JSON compact est chargé et validé à la demande par `ctx.data.leaderboard()`. Il conserve tous les incidents, y compris ceux sans coordonnées ou sans pays représentable, ainsi que les champs détaillés du classement. Les colonnes facultatives absentes d’un autre export restent inconnues. Le navigateur ne charge plus le CSV nettoyé ni les anciens agrégats annuels.
+
+Le classement conserve la lecture/pause, le réglage de vitesse, la navigation temporelle continue, la courbe de synthèse, les regroupements de catégories, les périodes de 5 ans/décennies et les filtres détaillés. Période, métrique et filtres communs suivent le store et l’URL, avec les codes ISO de la carte. Les réglages propres au classement utilisent `state.ext` ; les regroupements restent en mémoire pendant la session. Les moyennes utilisent les incidents renseignés ; 1993 reste une année sans données.

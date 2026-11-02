@@ -986,3 +986,12 @@ Retour du navigateur.
 1440 × 900 et 390 × 844 : page de garde, planche 1, planche 2 en préparation,
 Retour planche 2 → planche 1 → page de garde, pas de défilement horizontal.
 Captures dans `.impeccable/review/`.
+
+
+## D24 — Classement animé dans la planche 4 (2 novembre 2026)
+
+Le leaderboard remplace son squelette dans le shell de l’atlas et occupe la quatrième position. La planche des incidents passe en position 2. Les styles restent limités au module ; la typographie, les filets, les fonds et les couleurs viennent du système commun.
+
+Un chargement paresseux supplémentaire, `DataApi.leaderboard()`, conserve les filtres de province, ville, sous-types, réussite et doute sans charger le CSV dans le navigateur ni alourdir les fichiers de la carte. `preprocess/preprocess.py` écrit `leaderboard.json` sous forme de colonnes et de dictionnaires (13,3 Mo sur l’export 2017). Le nouveau contrat est isolé dans `core/leaderboard-data.ts` ; les contrats existants restent inchangés. Les noms source demeurent dans l’adaptateur Python.
+
+Les filtres de pays partagés utilisent les codes ISO, tandis que les libellés historiques restent distincts dans le classement. Les incidents sans coordonnées ou pays représentable sont conservés. Les années absentes, zéros et valeurs inconnues gardent leur sens ; sommes conjointes et moyennes sont recalculées à partir des incidents filtrés. Les abonnements, observateurs et animations sont libérés au démontage, y compris lorsqu’un chargement se termine après la navigation.

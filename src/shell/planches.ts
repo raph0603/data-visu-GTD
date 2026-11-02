@@ -27,12 +27,12 @@ export const PLANCHES: readonly Planche[] = [
     summary: 'Le globe des attentats, du monde au pays et à l’incident.',
   },
   {
-    id: 'leaderboard',
+    id: 'atlas',
     n: 2,
-    question: 'Qui ?',
-    title: 'Qui est le plus touché, qui frappe le plus ?',
-    name: VIEW_LABELS.leaderboard,
-    summary: 'Les pays et les organisations en tête, année après année.',
+    question: 'Quoi ?',
+    title: 'Que s’est-il passé, incident par incident ?',
+    name: VIEW_LABELS.atlas,
+    summary: 'L’intérieur d’un pays, un attentat après l’autre, avec sa fiche.',
   },
   {
     id: 'flow',
@@ -43,12 +43,12 @@ export const PLANCHES: readonly Planche[] = [
     summary: 'Types d’attaque, cibles et armes, enchaînés.',
   },
   {
-    id: 'atlas',
+    id: 'leaderboard',
     n: 4,
-    question: 'Quoi ?',
-    title: 'Que s’est-il passé, incident par incident ?',
-    name: VIEW_LABELS.atlas,
-    summary: 'L’intérieur d’un pays, un attentat après l’autre, avec sa fiche.',
+    question: 'Qui ?',
+    title: 'Qui est le plus touché, qui frappe le plus ?',
+    name: VIEW_LABELS.leaderboard,
+    summary: 'Les pays et les organisations en tête, année après année.',
   },
 ];
 
