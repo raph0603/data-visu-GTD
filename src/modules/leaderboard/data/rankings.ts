@@ -1,20 +1,20 @@
-import type { DataRow } from "./loadData";
+export type DataRow = Record<string, string>;
 
 export const dimensions = {
-  country_txt: "Pays",
-  region_txt: "Régions",
-  gname: "Groupes",
-  attacktype1_txt: "Types d'attaque",
-  weaptype1_txt: "Armes",
-  targtype1_txt: "Cibles",
-  provstate: "Provinces / États",
+  country: "Pays",
+  region: "Régions",
+  group: "Groupes",
+  attackType: "Types d'attaque",
+  weaponType: "Armes",
+  targetType: "Cibles",
+  province: "Provinces / États",
   city: "Villes",
-  weapsubtype1_txt: "Sous-types d'armes",
-  targsubtype1_txt: "Sous-types de cibles",
+  weaponSubtype: "Sous-types d'armes",
+  targetSubtype: "Sous-types de cibles",
 };
 
 export type Dimension = keyof typeof dimensions;
-export type Flag = "suicide" | "success" | "doubtterr";
+export type Flag = "suicide" | "success" | "doubt";
 
 export const metrics = {
   attacks: "Nombre d'attaques",
@@ -30,6 +30,8 @@ export const metrics = {
 
 export type Metric = keyof typeof metrics;
 
+export type CategoryGroup = { name: string; members: string[] };
+
 export type Incident = {
   values: DataRow;
   year: number;
@@ -37,7 +39,7 @@ export type Incident = {
   injuries: number | null;
   suicide: number | null;
   success: number | null;
-  doubtterr: number | null;
+  doubt: number | null;
 };
 
 export type Filters = {
@@ -82,12 +84,12 @@ function flagValue(value: string | undefined): number | null {
 export function parseIncident(values: DataRow): Incident {
   return {
     values,
-    year: Number(values.iyear),
-    deaths: numericValue(values.nkill),
-    injuries: numericValue(values.nwound),
+    year: Number(values.year),
+    deaths: numericValue(values.killed),
+    injuries: numericValue(values.wounded),
     suicide: flagValue(values.suicide),
     success: flagValue(values.success),
-    doubtterr: flagValue(values.doubtterr),
+    doubt: flagValue(values.doubt),
   };
 }
 
@@ -105,14 +107,28 @@ export function filterIncidents(incidents: Incident[], filters: Filters): Incide
   });
 }
 
-export function aggregateIncidents(incidents: Incident[], dimension: Dimension, excludeUnknown = false): RankingRow[] {
+export function incidentCategory(incident: Incident, dimension: Dimension): string {
+  const label = incident.values[dimension]?.trim() || "Unknown";
+  return dimension === "city" ? `${label} (${incident.values.province}, ${incident.values.country})`
+    : dimension === "province" ? `${label} (${incident.values.country})` : label;
+}
+
+export function aggregateIncidents(
+  incidents: Incident[], dimension: Dimension, excludeUnknown = false, categoryGroups: CategoryGroup[] = [],
+): RankingRow[] {
+  const membership = new Map<string, string>();
+  for (const group of categoryGroups) {
+    for (const member of group.members) {
+      if (membership.has(member)) throw new Error("Une catégorie ne peut appartenir qu'à un seul groupe.");
+      membership.set(member, group.name);
+    }
+  }
   const groups = new Map<string, RankingRow>();
   for (const incident of incidents) {
     const label = incident.values[dimension]?.trim() || "Unknown";
     if (excludeUnknown && label.toLowerCase() === "unknown") continue;
-    const category = dimension === "city"
-      ? `${label} (${incident.values.provstate}, ${incident.values.country_txt})`
-      : dimension === "provstate" ? `${label} (${incident.values.country_txt})` : label;
+    const originalCategory = incidentCategory(incident, dimension);
+    const category = membership.get(originalCategory) ?? originalCategory;
     let totals = groups.get(category);
     if (!totals) {
       totals = {

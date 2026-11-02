@@ -80,6 +80,18 @@ def test_invalid_coordinates_count_as_missing(synthetic):
     assert (incidents["count"], incidents["withoutCoordinates"]) == (0, 1)
 
 
+def test_leaderboard_keeps_all_incidents_and_optional_unknowns(synthetic):
+    ranking = read_json(synthetic / "leaderboard.json")
+    assert ranking["count"] == 5
+    assert ranking["columns"]["countryId"] == ["FRA", "FRA", "FRA", "", "NIC"]
+    assert ranking["columns"]["killed"] == [2, None, 0, 5, 1]
+    assert ranking["columns"]["wounded"] == [None, 3, 0, 1, 2]
+    assert ranking["columns"]["success"] == [None] * 5
+    assert ranking["columns"]["doubt"] == [None] * 5
+    assert ranking["dictionaries"]["province"] == ["Unknown"]
+    assert all(len(values) == 5 for values in ranking["columns"].values())
+
+
 def test_countries_without_rows_hold_measured_zeros(synthetic):
     germany = read_json(synthetic / "agg" / "country_year.json")["entities"]["DEU"]
     assert germany["incidents"] == [0, None, 0, None, 0]

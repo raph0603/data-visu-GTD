@@ -19,9 +19,12 @@ import {
   type TopEventsFile,
 } from './contracts';
 import { describeDataset, type DatasetMeta } from './meta';
+import { fetchLeaderboard, type LeaderboardFile } from './leaderboard-data';
 
 /** What a module may ask for. Every method is lazy, validated and memoized; modules never build URLs. */
 export interface DataApi {
+  /** Detailed ranking fields, loaded only by the leaderboard. */
+  leaderboard(): Promise<LeaderboardFile>;
   countryYear(): Promise<CountryYearFile>;
   regionYear(): Promise<RegionYearFile>;
   groupYear(): Promise<GroupYearFile>;
@@ -54,6 +57,7 @@ export function createDataApi(datasetId: string, meta: Meta, fetchJson: FetchJso
   }
 
   return {
+    leaderboard: () => memo('leaderboard', () => fetchLeaderboard(datasetId, meta, fetchJson)),
     countryYear: () => memo('agg/country_year', () => fetchCountryYear(datasetId, meta, fetchJson)),
     regionYear: () => memo('agg/region_year', () => fetchRegionYear(datasetId, meta, fetchJson)),
     groupYear: () => memo('agg/group_year', () => fetchGroupYear(datasetId, meta, fetchJson)),
