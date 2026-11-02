@@ -18,3 +18,7 @@ public/data/*
 .venv/
 __pycache__/
 .pytest_cache/
+
+# Local browser verification artifacts.
+.playwright-cli/
+output/playwright/

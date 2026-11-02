@@ -59,7 +59,25 @@ COLUMNS: dict[str, str] = {
     # 1 when the attack is a suicide attack, else 0 (never missing in the 2017 export).
     "suicide": "suicide",
     "summary": "summary",
+    "province": "provstate",
+    "weapon_subtype": "weapsubtype1_txt",
+    "target_subtype": "targsubtype1_txt",
+    "success": "success",
+    "doubt": "doubtterr",
 }
+
+
+def read_ranking_details(path: Path = RAW_CSV) -> pd.DataFrame:
+    """Optional detail columns; alternative/test exports may omit them."""
+    fields = ["event_id", "province", "weapon_subtype", "target_subtype", "success", "doubt"]
+    names = {COLUMNS[field]: field for field in fields}
+    frame = pd.read_csv(path, encoding=ENCODING, usecols=lambda name: name in names, low_memory=False)
+    frame = frame.rename(columns=names)
+    for field in fields:
+        if field not in frame:
+            frame[field] = pd.NA
+    frame["event_id"] = frame["event_id"].astype("int64").astype(str)
+    return frame.set_index("event_id")
 
 
 def read_gtd(fields: list[str], path: Path = RAW_CSV) -> pd.DataFrame:
