@@ -108,6 +108,8 @@ export interface Breakdown {
   readonly weaponType: Totals[];
   /** Sparse: group index → totals. */
   readonly group: Map<number, Totals>;
+  /** The suicide attacks among them. */
+  readonly suicide: Totals;
 }
 
 export interface Scan {
@@ -306,6 +308,7 @@ export class CountryModel {
       targetType: this.dict.targetType.map(emptyTotals),
       weaponType: this.dict.weaponType.map(emptyTotals),
       group: new Map(),
+      suicide: emptyTotals(),
     });
     const combined = newBreakdown();
     const perCountry = new Map(selection.map((c) => [c, newBreakdown()]));
@@ -347,9 +350,11 @@ export class CountryModel {
       const a = this.dims.attackType[r] ?? 0;
       const t = this.dims.targetType[r] ?? 0;
       const w = this.dims.weaponType[r] ?? 0;
+      const suicide = this.suicide[r] === 1;
       for (const breakdown of [combined, perCountry.get(c)]) {
         if (breakdown === undefined) continue;
         addInto(breakdown.total, row);
+        if (suicide) addInto(breakdown.suicide, row);
         addInto(breakdown.attackType[a] ?? emptyTotals(), row);
         addInto(breakdown.targetType[t] ?? emptyTotals(), row);
         addInto(breakdown.weaponType[w] ?? emptyTotals(), row);

@@ -63,14 +63,10 @@ export interface Display {
   withUnit(value: number): string;
 }
 
-/** What the globe draws at the world level: the incidents themselves, or one colour per country. */
-export type MapLayer = 'events' | 'countries';
-
 /** Everything derived from one state, shared by the globe, the panel and the time bar. */
 export interface Frame {
   readonly state: AppState;
   readonly level: Level;
-  readonly layer: MapLayer;
   readonly metric: MetricDef;
   readonly display: Display;
   readonly filters: Filters;
@@ -197,7 +193,6 @@ export function buildFrame(env: Env, state: AppState, slots: SlotKeeper): Frame 
   return {
     state,
     level: levelOf(state),
-    layer: state.ext['map.layer'] === 'countries' ? 'countries' : 'events',
     metric,
     display: displayOf(metric, perCapita),
     filters,

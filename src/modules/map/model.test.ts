@@ -96,6 +96,16 @@ describe('CountryModel.scan', () => {
     expect(scan.groupYears.get(model.indexOf('group', 'Boko Haram'))).toEqual([2000, 2002]);
   });
 
+  it('counts the suicide attacks of each country, as the suicide filter does', () => {
+    const scan = model.scan(readFilters({}), all, [nga, fra]);
+    const suicide = model.table(readFilters({ suicide: ['1'] }));
+    for (const c of [nga, fra]) {
+      const expected = model.totals(suicide, [c], all);
+      expect(scan.perCountry.get(c)?.suicide).toEqual(expected);
+    }
+    expect(scan.combined.suicide.incidents).toBe(model.totals(suicide, [nga, fra], all).incidents);
+  });
+
   it('uses the whole world when nothing is selected, inside the window only', () => {
     const scan = model.scan(readFilters({}), { from: 2002, to: 2002 }, []);
     expect(scan.combined.total.incidents).toBe(4);

@@ -13,6 +13,7 @@ const PATHS = {
   share: '<path d="M4 13v6a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-6M16 7l-4-4-4 4M12 3v12"/>',
   check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
   close: '<path d="M6 6l12 12M18 6L6 18"/>',
+  panel: '<rect x="3" y="4.5" width="18" height="15" rx="1.5"/><path d="M14.5 4.5v15"/>',
   keyboard: '<rect x="2.5" y="6" width="19" height="12" rx="2"/><path d="M6.5 10h.01M10 10h.01M14 10h.01M17.5 10h.01M7.5 14h9"/>',
 } as const;
 

@@ -30,7 +30,7 @@ const wrap = (lambda: number): number => ((((lambda + 180) % 360) + 360) % 360) 
 
 /** Radius of the whole globe at k = 1: it fits the view with a margin for the shadow and labels. */
 export function baseRadius(v: Viewport): number {
-  return Math.max(1, Math.min(v.width, v.height) * 0.44);
+  return Math.max(1, Math.min(v.width, v.height) * 0.48);
 }
 
 export function clampCamera(c: Camera): Camera {
