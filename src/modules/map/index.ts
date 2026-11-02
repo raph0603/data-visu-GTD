@@ -4,14 +4,14 @@ import { buildCountryAtlas, loadCountryAtlas, type CountryAtlas } from '../../co
 import type { ModuleContext, ModuleHandle, VizModule } from '../../core/module';
 import { buildFrame, createEnv, type Env } from './frame';
 import { createGlobe, type Globe } from './globe';
-import { icon } from './icons';
+import { icon, iconLabel } from './icons';
 import { IncidentFiles } from './incidents';
 import { CountryModel } from './model';
 import { createPanel, type Panel } from './panel';
 import { loadPopulation } from './population';
 import { clearCountries, SlotKeeper } from './selection';
 import { createTimeBar, type TimeBar } from './timebar';
-import { Tooltip } from './ui';
+import { Tooltip, type Sel } from './ui';
 import './map.css';
 
 interface Parts {
@@ -54,13 +54,22 @@ const mapModule: VizModule = {
     let scheduled = false;
     let loadingAll = false;
     let progressTimer: number | null = null;
+    // The panel is folded by default, so the globe takes the whole width; it opens for an incident sheet.
+    let panelToggle: Sel<HTMLButtonElement> | null = null;
 
     function render(): void {
       scheduled = false;
       if (!alive || env === null || parts === null || files === null) return;
       const frame = buildFrame(env, store.get(), slots);
+      const panelOpen = frame.state.ext['map.panel'] === 'open' || frame.level === 'incident';
+      stage.classed('is-panel-closed', !panelOpen);
+      panelToggle
+        ?.attr('hidden', frame.level === 'incident' ? '' : null)
+        .attr('aria-expanded', String(panelOpen))
+        .attr('title', panelOpen ? 'Replier le panneau : la carte prend toute la largeur' : 'Ouvrir le panneau des chiffres, organisations et incidents')
+        .html(iconLabel('panel', panelOpen ? 'Replier le panneau' : 'Panneau détaillé'));
       if (frame.selected.length > 0 && files.missing(frame.selected)) void files.ensure(frame.selected).then(schedule);
-      if (frame.layer === 'events') loadAll(env.drawable);
+      loadAll(env.drawable);
       parts.timebar.update(frame);
       parts.panel.update(frame);
       parts.globe.update(frame);
@@ -177,6 +186,12 @@ const mapModule: VizModule = {
         env = built;
         files = new IncidentFiles(data);
         const globe = createGlobe(globeBox, built, { detail, coarse }, files);
+        panelToggle = globeBox
+          .select<HTMLDivElement>('.cv-toolbar')
+          .insert<HTMLButtonElement>('button', ':first-child')
+          .attr('type', 'button')
+          .attr('class', 'cv-panel-toggle')
+          .on('click', () => store.set((s) => ({ ext: { ...s.ext, 'map.panel': s.ext['map.panel'] === 'open' ? 'closed' : 'open' } })));
         parts = {
           globe,
           panel: createPanel(stage, built, files, { previewIncident: (eventId) => globe.previewIncident(eventId) }),

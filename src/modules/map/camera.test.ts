@@ -1,7 +1,7 @@
 import type { Feature, Polygon } from 'geojson';
 import { describe, expect, it } from 'vitest';
 import { clampCamera, fitCamera, flight, MAX_K, PointProjector, projectionFor, zoomAround, type Camera } from './camera';
-import { HexGrid } from './hexbin';
+import { boxesForGauss } from './heat';
 
 const view = { width: 800, height: 600 };
 const RAD = Math.PI / 180;
@@ -75,16 +75,15 @@ describe('camera moves', () => {
   });
 });
 
-describe('HexGrid', () => {
-  it('bins nearby points together and every point lies within a radius of its hexagon centre', () => {
-    const grid = new HexGrid(10);
-    const xs = [100, 101, 103, 140, 400.5];
-    const ys = [100, 102, 99, 100, 250];
-    const bins = grid.bin(xs, ys, xs.length);
-    expect(bins.size).toBe(3);
-    for (const bin of bins.values()) {
-      for (const n of bin.items) expect(Math.hypot((xs[n] ?? 0) - bin.x, (ys[n] ?? 0) - bin.y)).toBeLessThanOrEqual(10 + 1e-9);
+describe('boxesForGauss', () => {
+  it('gives three box blurs whose variances add up to the gaussian one', () => {
+    for (const sigma of [1.5, 2.5, 4]) {
+      const radii = boxesForGauss(sigma, 3);
+      expect(radii).toHaveLength(3);
+      for (const r of radii) expect(Number.isInteger(r)).toBe(true);
+      // A box of width w = 2r + 1 has a variance of (w² − 1) / 12.
+      const variance = radii.reduce((sum, r) => sum + ((2 * r + 1) ** 2 - 1) / 12, 0);
+      expect(Math.abs(variance - sigma * sigma)).toBeLessThan(sigma);
     }
-    expect(grid.key(100, 100)).toBe(grid.key(101, 102));
   });
 });
