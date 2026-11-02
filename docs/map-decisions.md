@@ -1072,3 +1072,45 @@ dessous (la page défile un peu). Sélection cadrée au centre, à 80 % de la vu
 navigateur : Nigeria sélectionné (Boko Haram au nord-est, extrémistes peuls
 au centre, MEND dans le delta), zoom jusqu'aux symboles, infobulle d'une bulle.
 
+
+## D26. Navigation clavier d'un attentat à l'autre, piles d'attentats, marque de sélection
+
+**Statut** : adoptée et implémentée le 2026-11-02 sur `feat/Alban_pays`, à la
+demande d'Alban.
+
+**Demande** : plusieurs attentats ont les mêmes coordonnées (7 520 au centre de
+Bagdad) ; même au zoom maximum, ils sont superposés et le pointeur ne peut pas
+choisir. Les flèches doivent passer d'un attentat à l'autre.
+
+**Décision** (`neighbour.ts`, `globe.ts`) :
+
+- **Les flèches ne tournent plus le globe** (le glisser reste) : elles ouvrent
+  l'attentat voisin. Sans attentat ouvert, la première flèche ouvre celui qui
+  est le plus proche du centre de la vue. Hors du zoom des attentats, un
+  message l'indique.
+- **Voisin** : parmi les attentats **dans la vue** (le placement garde une marge
+  de 24 px, écartée ici), le plus proche dans le quart de vue (cône de 90°) que
+  désigne la flèche ; rien dans le cône : la sélection ne bouge pas.
+- **Piles** : des attentats à moins de 2 px (`PILE_PX`) ne se distinguent pas
+  par direction. Ils sont parcourus par ordre chronologique (l'identifiant GTD
+  commence par la date), droite et bas vers le plus récent, gauche et haut vers
+  le plus ancien ; on quitte la pile une fois son bout atteint, et en entrant
+  dans une pile on tombe sur le bout d'où l'on vient. **Maj + flèche** sort de la
+  pile tout de suite. Un message dit « n sur N au même endroit ».
+- **Caméra** : elle ne bouge que si l'attentat arrive à moins de 18 % du bord
+  (140 × 90 px au plus), et seulement de la distance qui le ramène. `targetKey`
+  est posé avant la sélection pour que `syncCamera` ne vole pas jusqu'à
+  l'attentat en zoom profond, comme pour un clic.
+- **Marque de sélection** : l'anneau est remplacé par quatre coins de viseur.
+  L'anneau noir signifie déjà « attentat-suicide » (et l'anneau de survol du
+  panneau garde sa forme) ; les coins ne servent à rien d'autre et ne
+  portent pas de couleur, qui est celle de l'organisation. Sur une pile rang et
+  taille (« 2/9 ») sont écrits au-dessus.
+
+**Points ouverts** : une pile de plusieurs milliers (Bagdad, toute la période)
+se parcourt une touche à la fois ; la frise réduit la période. La touche doit
+avoir le focus : la carte l'a après un clic dessus, pas après un lien profond.
+
+**Vérification** : `npm run typecheck`, `npm test` (168, dont 11 pour
+`neighbour.ts`) ; navigateur : Irak, pile de 9 attentats à Bagdad parcourue de
+1/9 à 9/9 puis quittée, flèches vers un attentat isolé, recentrage au bord.

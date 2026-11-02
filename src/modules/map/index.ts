@@ -108,7 +108,9 @@ const mapModule: VizModule = {
 
     // ------------------------------------------------------------------ keyboard help (D22)
     const SHORTCUTS: readonly [string, string][] = [
-      ['Glisser, flèches', 'tourner le globe'],
+      ['Glisser', 'tourner le globe'],
+      ['Flèches', 'attentat voisin dans la direction (au zoom des attentats)'],
+      ['Maj + flèche', 'sortir d’une pile d’attentats au même endroit'],
       ['Molette, + et −', 'zoomer'],
       ['Clic', 'ajouter ou retirer un pays (4 au plus)'],
       ['Double-clic', 'zoomer sur un pays'],
