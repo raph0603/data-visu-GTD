@@ -986,3 +986,89 @@ Retour du navigateur.
 1440 × 900 et 390 × 844 : page de garde, planche 1, planche 2 en préparation,
 Retour planche 2 → planche 1 → page de garde, pas de défilement horizontal.
 Captures dans `.impeccable/review/`.
+
+## D24. Carte de chaleur, zoom sémantique sur la sélection, carte pleine largeur
+
+**Statut** : adoptée et implémentée le 2026-11-02 sur `feat/Alban_pays`, à la
+demande d'Alban ; remplace les hexagones de D20 et le calque « Pays » de D19.
+
+**Décision** :
+
+- **Carte de chaleur** (`heat.ts`) à la place des hexagones, à la manière de
+  Snap Map : le poids de la mesure (incidents, morts ou blessés) est sommé sur
+  une grille d'écran de 3 px, flouté par une gaussienne (trois flous en boîte,
+  rayon de 15 px à l'écran), puis coloré du bleu au rouge, l'opacité montant
+  avec la densité. Les densités sous 1,5 incident isolé restent transparentes.
+  Échelle logarithmique, relative à la vue. En zoomant, les points (un par
+  incident) prennent le relais comme avant. L'infobulle somme les incidents
+  dans le rayon du flou.
+- **Un seul calque** : le sélecteur « Attentats / Pays » est retiré ; la
+  sélection des pays se fait sur la carte des attentats elle-même (clic).
+- **Zoom sémantique sur la sélection** (`cards.ts`, remplacé par D25) : chaque changement de la
+  sélection cadre les pays choisis dans les 58 % gauches de la vue ; chaque pays
+  porte une fiche reliée par un filet, rangée en colonne à droite de la
+  sélection. Le contenu suit la taille du pays à l'écran : nom, incidents et
+  morts (niveau 1) ; blessés, attentats-suicides et part des morts qu'ils
+  causent, trois premières organisations (niveau 2, dès 90 px) ; types
+  d'attaque, armes et cibles en barres (niveau 3, dès 230 px). Une fiche qui ne
+  trouve pas de place descend d'un niveau. `Breakdown` porte désormais les
+  totaux des attentats-suicides.
+- **Carte pleine largeur** : le panneau latéral est replié par défaut
+  (`x.map.panel=open` pour l'ouvrir) et s'ouvre seul pour la fiche d'un
+  incident ; au niveau monde, le globe remplit la largeur (pôles coupés) ; les
+  contrôles tiennent sur une ligne en haut à droite, avec « Tout
+  désélectionner » dès qu'un pays est choisi.
+
+**Points ouverts** : la rampe de chaleur, multicolore et rouge au sommet,
+s'écarte de la rampe à une teinte du projet et de l'anti-référence « rouge
+sang » de `docs/PRODUCT.md` ; elle a été choisie pour sa lecture immédiate. La
+tâche T5 de `src/core/tasks.ts` cite encore « hexbins » (core est figé).
+
+**Vérification** : `npm run typecheck`, `npm test` ; navigateur à 1440 × 900 :
+monde, Irak + Syrie, Nigeria zoomé, « Tout désélectionner », panneau replié et
+ouvert, fiche d'incident.
+
+## D25. Zoom sémantique : la représentation change sur les pays eux-mêmes
+
+**Statut** : adoptée et implémentée le 2026-11-02 sur `feat/Alban_pays`, à la
+demande d'Alban ; remplace les fiches texte de D24 (`cards.ts` supprimé).
+
+**Demande** : en zoomant sur un pays ou en le sélectionnant, la vue doit
+changer de mode de représentation, en continuité avec la précédente, et faire
+apparaître de nouvelles informations sur les pays, pas sous forme de texte ou
+de tableau. La carte doit occuper au moins la moitié de la hauteur de l'écran.
+
+**Décision** : trois lectures le long du zoom (`globe.ts`, `organizations.ts`,
+`heat.ts`), chacune répondant à une question, avec les mêmes couleurs d'un
+palier à l'autre :
+
+1. **Monde, « où ? »** : la carte de chaleur de D24.
+2. **Région ou pays, « qui ? »** (moins de 7 km par pixel, ou 12 km par pixel
+   avec une sélection, ce qui est atteint dès qu'on sélectionne un pays) : la
+   chaleur se colore par **organisation dominante** (`ClassField` : une densité
+   floutée par organisation, chaque pixel prend la couleur de celle qui domine,
+   l'opacité suit la densité). Les six organisations les plus actives des pays
+   sélectionnés (ou des pays en vue) prennent les couleurs Okabe–Ito ; les
+   autres sont en gris, les auteurs inconnus en gris clair. Avec une sélection,
+   seuls les pays sélectionnés portent des territoires. Sur chaque pays, des
+   **bulles** placées au centre des incidents de chaque organisation : aire =
+   incidents en vue, arc noir = part d'attentats-suicides. Survol : incidents,
+   morts, suicides, armes ; clic : filtre sur l'organisation.
+3. **Attentat, « comment ? »** (moins de 1 500 incidents en vue) : un symbole
+   par attentat, de la couleur de son organisation (ou de son type d'attaque),
+   de la **forme de son arme** (rond : armes à feu, triangle : explosifs,
+   losange : incendiaire, carré : arme blanche, croix : autre), de la taille de
+   ses morts, cerclé de noir pour un attentat-suicide. Les territoires restent
+   en fond, atténués.
+
+Les pays sélectionnés sont cernés à l'encre et nommés sur la carte (la couleur
+d'identité reste dans le panneau). La légende garde les clés et replie leur
+mode de lecture sous « Comment lire ».
+
+**Taille** : la scène fait `max(560px, 72vh)` de haut ; la frise suit en
+dessous (la page défile un peu). Sélection cadrée au centre, à 80 % de la vue.
+
+**Vérification** : `npm run typecheck`, `npm test` (157), `npm run build` ;
+navigateur : Nigeria sélectionné (Boko Haram au nord-est, extrémistes peuls
+au centre, MEND dans le delta), zoom jusqu'aux symboles, infobulle d'une bulle.
+
