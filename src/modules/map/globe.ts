@@ -10,6 +10,7 @@ import { ClassField, HeatField, heatGradient } from './heat';
 import { icon, iconLabel } from './icons';
 import { cellsOf, deadliestFirst, incidentCategory, incidentDate, type Cells, type IncidentFiles, type IncidentSet } from './incidents';
 import { emptyTotals, filtersKey, isNamedGroup, knownShareOf, metricOf } from './model';
+import { compareIds, nearestTo, neighbour, PILE_PX, type Direction, type Spot } from './neighbour';
 import { bubblesOf, glyphOf, glyphSvg, GroupColors, traceGlyph, WEAPON_GLYPHS, type Bubble } from './organizations';
 import { MIN_POPULATION_FOR_RATE } from './population';
 import { clearCountries, MAX_SELECTION, selectedCountries as selectedOf, toggleCountry, type Level } from './selection';
@@ -26,6 +27,7 @@ const EXPLORED_LAND = '#fbfbf9';
 /** Land under the heat: neutral, so the only colour on the globe is the density. */
 const LAND = '#e8e7e2';
 const INK = '#1d1d1b';
+const ARROWS: Record<string, Direction> = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down' };
 const OTHER = '#8a8983';
 /** The shell's typeface (D23), with the system one while it loads. */
 const FONT = '"Libre Franklin Variable", system-ui, -apple-system, "Segoe UI", sans-serif';
@@ -139,7 +141,7 @@ export function createGlobe(parent: Sel<HTMLDivElement>, env: Env, atlases: Glob
     .append('p')
     .attr('id', 'cv-globe-keys')
     .attr('class', 'cv-sr-only')
-    .text('Flèches : tourner le globe. Plus et moins : zoomer. Entrée : sélectionner le pays au centre. Échap : fermer la fiche ou vider la sélection.');
+    .text('Flèches : passer à l’attentat voisin dans la direction, Maj et flèche pour sortir d’une pile d’attentats au même endroit. Plus et moins : zoomer. Entrée : sélectionner le pays au centre. Échap : fermer la fiche ou vider la sélection.');
   const hint = parent.append('p').attr('class', 'cv-hint');
   const status = parent.append('p').attr('class', 'cv-globe-status').attr('role', 'status');
   // One row of controls along the top edge, so the cards keep the height of the view.
@@ -831,17 +833,52 @@ export function createGlobe(parent: Sel<HTMLDivElement>, env: Env, atlases: Glob
       context.stroke();
       if (open !== null && c.eventId[i] === open) ring = [x, y, r];
     }
-    if (ring !== null) {
-      const [x, y, r] = ring;
-      context.beginPath();
-      context.arc(x, y, r + 5, 0, Math.PI * 2);
-      context.strokeStyle = 'rgba(255, 255, 255, 0.95)';
-      context.lineWidth = 5;
-      context.stroke();
-      context.strokeStyle = INK;
-      context.lineWidth = 2;
-      context.stroke();
+    if (ring !== null && open !== null) drawSelection(context, ring[0], ring[1], ring[2], open);
+  }
+
+  /**
+   * The open incident: four corner marks, like a viewfinder. A ring would read as the black ring of
+   * a suicide attack; the marks are used for nothing else. Under a pile, its rank among the
+   * incidents at that spot (oldest first) is written above.
+   */
+  function drawSelection(context: CanvasRenderingContext2D, x: number, y: number, r: number, open: string): void {
+    const d = r + 7;
+    const arm = Math.min(9, Math.max(5, d * 0.7));
+    context.beginPath();
+    for (const sx of [-1, 1]) {
+      for (const sy of [-1, 1]) {
+        context.moveTo(x + sx * d, y + sy * (d - arm));
+        context.lineTo(x + sx * d, y + sy * d);
+        context.lineTo(x + sx * (d - arm), y + sy * d);
+      }
     }
+    context.lineCap = 'square';
+    context.lineJoin = 'miter';
+    context.strokeStyle = 'rgba(255, 255, 255, 0.95)';
+    context.lineWidth = 5;
+    context.stroke();
+    context.strokeStyle = INK;
+    context.lineWidth = 2;
+    context.stroke();
+    context.lineCap = 'butt';
+    let size = 0;
+    let rank = 0;
+    for (let n = 0; n < placed.n; n++) {
+      if (Math.hypot((placed.xs[n] ?? 0) - x, (placed.ys[n] ?? 0) - y) > PILE_PX) continue;
+      size++;
+      const id = placed.sets[n]?.file.columns.eventId[placed.index[n] ?? 0];
+      if (id !== undefined && compareIds(id, open) < 0) rank++;
+    }
+    if (size < 2) return;
+    context.font = `700 11.5px ${FONT}`;
+    context.textAlign = 'center';
+    context.textBaseline = 'middle';
+    context.lineJoin = 'round';
+    context.lineWidth = 3.5;
+    context.strokeStyle = 'rgba(255, 255, 255, 0.95)';
+    context.strokeText(`${rank + 1}/${size}`, x, y - d - 9);
+    context.fillStyle = INK;
+    context.fillText(`${rank + 1}/${size}`, x, y - d - 9);
   }
 
   function drawLabels(context: CanvasRenderingContext2D): void {
@@ -1322,6 +1359,52 @@ export function createGlobe(parent: Sel<HTMLDivElement>, env: Env, atlases: Glob
     }, 2600) ?? null;
   }
 
+  /** The incidents of the placed points that lie inside the view (the placement keeps a margin around it). */
+  function visibleSpots(): Spot[] {
+    const spots: Spot[] = [];
+    for (let n = 0; n < placed.n; n++) {
+      const x = placed.xs[n] ?? 0;
+      const y = placed.ys[n] ?? 0;
+      if (x < 0 || y < 0 || x > viewport.width || y > viewport.height) continue;
+      const id = placed.sets[n]?.file.columns.eventId[placed.index[n] ?? 0];
+      if (id !== undefined) spots.push({ id, x, y });
+    }
+    return spots;
+  }
+
+  /**
+   * An arrow key moves the open incident to its neighbour in the view (neighbour.ts), whatever the
+   * pointer can reach; with none open, it opens the incident nearest to the centre. The camera only
+   * moves when the incident ends up near an edge, and then by the distance that brings it back.
+   */
+  function stepIncident(direction: Direction, leavePile: boolean): void {
+    const f = frame;
+    if (f === null) return;
+    if (mode !== 'points') {
+      say('Zoomez jusqu’aux attentats pour passer de l’un à l’autre avec les flèches.');
+      return;
+    }
+    const spots = visibleSpots();
+    const open = f.state.incident;
+    const target = open !== null && spots.some((s) => s.id === open) ? neighbour(spots, open, direction, leavePile) : nearestTo(spots, viewport.width / 2, viewport.height / 2);
+    if (target === null) {
+      const side = { left: 'à gauche', right: 'à droite', up: 'au-dessus', down: 'en dessous' }[direction];
+      say(spots.length === 0 ? 'Aucun attentat dans la vue.' : `Aucun autre attentat ${side} dans la vue.`);
+      return;
+    }
+    // The move is made here, not by syncCamera, which would fly to the incident at a deep zoom.
+    targetKey = `${f.selected.join(',')}|${target.id}`;
+    store.set({ incident: target.id });
+    const pile = spots.filter((s) => Math.hypot(s.x - target.x, s.y - target.y) <= PILE_PX);
+    if (pile.length > 1) say(`${pile.filter((s) => compareIds(s.id, target.id) <= 0).length} sur ${pile.length} au même endroit, du plus ancien au plus récent.`);
+    const mx = Math.min(140, viewport.width * 0.18);
+    const my = Math.min(90, viewport.height * 0.18);
+    const shift = (v: number, size: number, margin: number) => (v < margin ? margin - v : v > size - margin ? size - margin - v : 0);
+    const sx = shift(target.x, viewport.width, mx);
+    const sy = shift(target.y, viewport.height, my);
+    if (sx !== 0 || sy !== 0) flyTo(rotateBy(camera, viewport, sx, sy));
+  }
+
   function onClick(x: number, y: number): void {
     const f = frame;
     if (f === null) return;
@@ -1452,12 +1535,16 @@ export function createGlobe(parent: Sel<HTMLDivElement>, env: Env, atlases: Glob
       onDoubleClick(x, y);
     })
     .on('keydown', (event: KeyboardEvent) => {
-      const step = 60;
+      // The arrows walk from incident to incident; the globe is turned with the pointer.
+      const arrow = ARROWS[event.key];
+      if (arrow !== undefined) {
+        event.preventDefault();
+        markInteracted();
+        stepIncident(arrow, event.shiftKey);
+        requestDraw();
+        return;
+      }
       const keys: Record<string, () => void> = {
-        ArrowLeft: () => (camera = rotateBy(camera, viewport, step, 0)),
-        ArrowRight: () => (camera = rotateBy(camera, viewport, -step, 0)),
-        ArrowUp: () => (camera = rotateBy(camera, viewport, 0, step)),
-        ArrowDown: () => (camera = rotateBy(camera, viewport, 0, -step)),
         '+': () => zoomBy(1.6),
         '=': () => zoomBy(1.6),
         '-': () => zoomBy(1 / 1.6),
