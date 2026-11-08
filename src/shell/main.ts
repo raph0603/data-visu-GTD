@@ -1,5 +1,6 @@
 import '@fontsource-variable/libre-franklin';
 import './style.css';
+import './plate.css';
 import { ContractError } from '../core/contracts';
 import { createDataApi, loadDataset } from '../core/data';
 import { bindHash, browserHashEnv, createHashCodec, type HashEnv } from '../core/hash';
@@ -9,13 +10,17 @@ import { defaultState, sanitizeState, type AppState } from '../core/state';
 import { createStore } from '../core/store';
 import { TASKS, VIEW_TASKS, type ViewId } from '../core/tasks';
 import { MODULES } from '../modules';
+import { createContextBar } from './context';
 import { renderCover } from './cover';
 import { fr, PLANCHES, plancheOf } from './planches';
+import { createTimeline } from './timeline';
 
 /**
  * Integrated shell, laid out as a thematic atlas (D23): a cover, then one plate per view, each
  * titled by its question. It loads one dataset, owns the store and the URL binding, and mounts one
  * module at a time.
+ * On a plate the page does not scroll (D28): the masthead, the context bar, the view and the time
+ * zone share the height of the window, and only the view's own side panels scroll.
  * Dataset selection: ?ds=<id> (default "gtd") → public/data/<id>/. It is a page-level choice, not part of
  * AppState, because changing dataset invalidates every other piece of state.
  */
@@ -104,7 +109,7 @@ async function boot(root: HTMLElement): Promise<void> {
   main.id = 'contenu';
   const planche = el('article', 'planche');
   planche.setAttribute('aria-labelledby', 'planche-titre');
-  const head = el('header', 'planche-head');
+  const head = el('header', 'planche-head visually-hidden');
   const heading = el('h1', 'planche-title');
   heading.id = 'planche-titre';
   heading.tabIndex = -1;
@@ -115,10 +120,14 @@ async function boot(root: HTMLElement): Promise<void> {
   head.append(heading, name);
   const notice = el('section', 'preparing');
   const host = el('div', 'planche-body');
-  const source = el('p', 'planche-source', `Source : ${meta.dataset.title}. Référence complète en bas de page.`);
-  planche.append(head, notice, host, source);
+  planche.append(head, notice, host);
   main.append(planche);
-  root.append(skip, header, main);
+  // The context bar and the time zone frame the view on every plate; the cover has neither.
+  const contextSlot = el('div', 'slot-context');
+  const timeSlot = el('div', 'slot-timeline');
+  root.append(skip, header, contextSlot, main, timeSlot);
+  const timeline = createTimeline(timeSlot, ctx);
+  createContextBar(contextSlot, ctx, { onPeriod: () => timeline.focus() });
 
   // The GTD terms of use (section 4.a) require this citation wherever its data is shown. It is in
   // English and set as given, without French spacing.
@@ -133,6 +142,28 @@ async function boot(root: HTMLElement): Promise<void> {
       footer.append(license);
     }
     root.append(footer);
+
+    // On a plate the colophon is folded away: the same text opens from the masthead.
+    const dialog = doc.createElement('dialog');
+    dialog.className = 'sources-dialog';
+    const dialogHead = el('div', 'sources-head');
+    dialogHead.append(el('h2', undefined, 'Source et conditions d’utilisation'));
+    const closeDialog = el('button', 'sources-close', '×');
+    closeDialog.type = 'button';
+    closeDialog.setAttribute('aria-label', 'Fermer');
+    closeDialog.addEventListener('click', () => dialog.close());
+    dialogHead.append(closeDialog);
+    dialog.append(dialogHead, citation.cloneNode(true));
+    if (meta.dataset.license !== null) dialog.append(el('p', undefined, meta.dataset.license));
+    dialog.addEventListener('click', (event) => {
+      if (event.target === dialog) dialog.close();
+    });
+    const sources = el('button', 'sources-button', 'Sources');
+    sources.type = 'button';
+    sources.title = 'Source des données et conditions d’utilisation';
+    sources.addEventListener('click', () => dialog.showModal());
+    header.append(sources);
+    root.append(dialog);
   }
 
   // ------------------------------------------------------------------ pages and plates
@@ -188,7 +219,13 @@ async function boot(root: HTMLElement): Promise<void> {
   }
 
   async function show(view: ViewId): Promise<void> {
-    if (page !== 'planche' || view === mounted) return;
+    if (page !== 'planche') return;
+    // A view without a plate (the atlas) is the map: its deepest zoom is the incident by incident reading.
+    if (!PLANCHES.some((p) => p.id === view)) {
+      store.set({ view: 'map' });
+      return;
+    }
+    if (view === mounted) return;
     unmount();
     const mine = token;
     mounted = view;
@@ -217,6 +254,7 @@ async function boot(root: HTMLElement): Promise<void> {
   function setPage(next: Page): void {
     if (next === page) return;
     page = next;
+    root.classList.toggle('is-plate', next === 'planche');
     if (page === 'cover') {
       unmount();
       planche.hidden = true;
@@ -248,6 +286,15 @@ async function boot(root: HTMLElement): Promise<void> {
     focusTitle();
     window.scrollTo({ top: 0 });
   }
+
+  // Space plays the time zone from anywhere on a plate, except while typing or on a control that uses it.
+  doc.addEventListener('keydown', (event) => {
+    if (event.key !== ' ' || event.ctrlKey || event.metaKey || event.altKey || page !== 'planche') return;
+    const target = event.target as HTMLElement | null;
+    if (target === null || (target !== doc.body && target.tagName !== 'CANVAS')) return;
+    event.preventDefault();
+    timeline.togglePlay();
+  });
 
   // popstate comes before hashchange: read the entry's state now, so the plate is mounted once.
   window.addEventListener('popstate', (event) => {

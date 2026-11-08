@@ -25,9 +25,10 @@
   --cv-shadow: none;
   --cv-z-overlay: 2;
   --cv-z-tooltip: 10;
+  /* The view fills the box the shell gives it (D28): the stage takes all of it. */
   display: grid;
-  grid-template-rows: auto auto;
-  gap: 12px;
+  grid-template-rows: minmax(0, 1fr);
+  height: 100%;
   margin: 0 auto;
   color: var(--cv-ink);
   font-size: 14px;
@@ -97,8 +98,7 @@
   grid-template-columns: minmax(0, 1fr) 340px;
   gap: 12px;
   min-height: 0;
-  /* The globe is the plate: at least most of the screen's height, the time bar follows below. */
-  height: max(560px, 72vh);
+  height: 100%;
 }
 
 .cv-stage:has(.cv-panel.is-compare) {
@@ -1562,6 +1562,17 @@
 
 .cv-panel-toggle:hover {
   background: var(--cv-sunken);
+}
+
+.cv-panel-toggle.is-active {
+  border-color: var(--cv-ink);
+  background: var(--cv-ink);
+  color: #fff;
+}
+
+.cv-panel-toggle[disabled] {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 .cv-panel-toggle .cv-icon {
