@@ -10,14 +10,12 @@ import { CountryModel } from './model';
 import { createPanel, type Panel } from './panel';
 import { loadPopulation } from './population';
 import { clearCountries, SlotKeeper } from './selection';
-import { createTimeBar, type TimeBar } from './timebar';
 import { Tooltip, type Sel } from './ui';
 import './map.css';
 
 interface Parts {
   readonly globe: Globe;
   readonly panel: Panel;
-  readonly timebar: TimeBar;
 }
 
 /** Simplified geometry drawn while the globe moves; the view works without it. */
@@ -30,8 +28,8 @@ function loadCoarseAtlas(): Promise<CountryAtlas | null> {
 /**
  * The country view (D19): a globe to turn and dive into. Its level follows the shared state: the
  * world, one explored country (focus) with an optional second one (pinned), one incident. The
- * panel beside it answers the question of the level; the bar under it holds the period, the play,
- * the metric and the comparison period.
+ * panel beside it answers the question of the level. The period, the play, the metric and the
+ * filters are the shell's (the time zone and the context bar, D28): the view reads them from the store.
  */
 const mapModule: VizModule = {
   id: 'map',
@@ -56,6 +54,8 @@ const mapModule: VizModule = {
     let progressTimer: number | null = null;
     // The panel is folded by default, so the globe takes the whole width; it opens for an incident sheet.
     let panelToggle: Sel<HTMLButtonElement> | null = null;
+    // Values per million inhabitants (D21): a setting of this view, in its toolbar.
+    let perToggle: Sel<HTMLButtonElement> | null = null;
 
     function render(): void {
       scheduled = false;
@@ -70,7 +70,12 @@ const mapModule: VizModule = {
         .html(iconLabel('panel', panelOpen ? 'Replier le panneau' : 'Panneau détaillé'));
       if (frame.selected.length > 0 && files.missing(frame.selected)) void files.ensure(frame.selected).then(schedule);
       loadAll(env.drawable);
-      parts.timebar.update(frame);
+      const ratable = frame.metric.kind !== 'mean' && env.population !== null;
+      perToggle
+        ?.classed('is-active', frame.display.perCapita)
+        .attr('aria-pressed', String(frame.display.perCapita))
+        .attr('disabled', ratable ? null : '')
+        .attr('title', ratable ? 'Diviser par la population moyenne de la période (Banque mondiale)' : env.population === null ? 'Population indisponible' : 'Déjà un taux : sans objet pour les morts par incident');
       parts.panel.update(frame);
       parts.globe.update(frame);
     }
@@ -139,7 +144,7 @@ const mapModule: VizModule = {
       if (show) (help.select('button').node() as HTMLButtonElement | null)?.focus();
     }
 
-    /** Space and ? work wherever the focus is, except while typing or on a control that uses them. */
+    /** ? works wherever the focus is, except while typing or on a control that uses it (Space is the time zone's). */
     const doc = host.ownerDocument;
     const onKey = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement | null;
@@ -148,9 +153,6 @@ const mapModule: VizModule = {
       if (event.key === '?') {
         event.preventDefault();
         toggleHelp();
-      } else if (event.key === ' ' && (target === null || target === doc.body || target.tagName === 'CANVAS')) {
-        event.preventDefault();
-        parts?.timebar.togglePlay();
       }
     };
     doc.addEventListener('keydown', onKey);
@@ -197,8 +199,22 @@ const mapModule: VizModule = {
         parts = {
           globe,
           panel: createPanel(stage, built, files, { previewIncident: (eventId) => globe.previewIncident(eventId) }),
-          timebar: createTimeBar(view, built, { onHelp: () => toggleHelp() }),
         };
+        const toolbar = globeBox.select<HTMLDivElement>('.cv-toolbar');
+        perToggle = toolbar
+          .insert<HTMLButtonElement>('button', ':first-child')
+          .attr('type', 'button')
+          .attr('class', 'cv-panel-toggle cv-per-toggle')
+          .html('<span>Par habitant</span>')
+          .on('click', () => store.set((s) => ({ ext: { ...s.ext, 'map.per': s.ext['map.per'] === 'capita' ? 'raw' : 'capita' } })));
+        toolbar
+          .append('button')
+          .attr('type', 'button')
+          .attr('class', 'cv-panel-toggle cv-icon-only')
+          .attr('aria-label', 'Raccourcis clavier')
+          .attr('title', 'Raccourcis clavier (?)')
+          .html(icon('keyboard'))
+          .on('click', () => toggleHelp());
         render();
         hover();
       })
@@ -214,7 +230,6 @@ const mapModule: VizModule = {
         doc.removeEventListener('keydown', onKey);
         offs.forEach((off) => off());
         parts?.globe.destroy();
-        parts?.timebar.destroy();
         view.on('keydown', null);
         view.remove();
       },

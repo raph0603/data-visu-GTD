@@ -1123,3 +1123,59 @@ Le leaderboard remplace son squelette dans le shell de l’atlas et occupe la qu
 Un chargement paresseux supplémentaire, `DataApi.leaderboard()`, conserve les filtres de province, ville, sous-types, réussite et doute sans charger le CSV dans le navigateur ni alourdir les fichiers de la carte. `preprocess/preprocess.py` écrit `leaderboard.json` sous forme de colonnes et de dictionnaires (13,3 Mo sur l’export 2017). Le nouveau contrat est isolé dans `core/leaderboard-data.ts` ; les contrats existants restent inchangés. Les noms source demeurent dans l’adaptateur Python.
 
 Les filtres de pays partagés utilisent les codes ISO, tandis que les libellés historiques restent distincts dans le classement. Les incidents sans coordonnées ou pays représentable sont conservés. Les années absentes, zéros et valeurs inconnues gardent leur sens ; sommes conjointes et moyennes sont recalculées à partir des incidents filtrés. Les abonnements, observateurs et animations sont libérés au démontage, y compris lorsqu’un chargement se termine après la navigation.
+
+## D28. Une planche tient dans la fenêtre : barre de contexte, zone temps, trois planches
+
+**Statut** : adoptée et implémentée le 2026-11-09 sur `feat/axel-carte`, à la demande
+d'Axel (première étape de la refonte de l'UX ; les planches Comment et Qui seront
+remises en page ensuite).
+
+**Demande** : le moins de défilement possible ; les contrôles de période, de mesure,
+de pays et de filtres communs à toutes les planches, au même endroit ; la visualisation
+ancrée au centre ; la planche 2 (atlas) retirée.
+
+**Mesure avant** (1440 × 900) : la page débordait de 312 px (carte), 849 px (flux) et
+1 146 px (classement).
+
+**Décision** (`src/shell/`) :
+
+- **Pas de défilement de page sur une planche** (`plate.css`) : le shell est une grille
+  de la hauteur de la fenêtre : bandeau (52 px), barre de contexte, vue, zone temps. Le
+  défilement n'existe que dans une vue qui n'est pas encore remise en page (flux,
+  classement : à l'intérieur de leur boîte), dans les panneaux latéraux et les menus. La
+  page de garde garde sa longue page. Mesuré : 0 px de débordement sur les trois planches
+  à 1440 × 900 et à 1280 × 720 ; la carte ne défile pas du tout (scène de 708 et 546 px).
+- **Trois planches** : Où ? (carte), Comment ? (flux), Qui ? (classement). Le module
+  `atlas` reste enregistré (le cœur est figé) mais n'a plus de planche : `#v=atlas`
+  renvoie à la carte, dont le zoom jusqu'à l'attentat est la lecture incident par
+  incident. Les tâches de l'atlas sont à réaffecter à la carte dans `core/tasks.ts`
+  (revue à deux personnes).
+- **Barre de contexte** (`context.ts`), sous le bandeau, pour toutes les planches : la
+  période (lecture seule, la frise la règle), la mesure, les pays (jusqu'à 4, avec
+  recherche), les filtres (menu : organisation, type d'attaque, cible, arme,
+  attentats-suicides ; les trois premières pastilles se voient dans la barre), « Tout
+  effacer » (pays, filtres, comparaison, attentat ouvert, période entière ; la mesure
+  reste) et « Partager ». Elle lit et écrit le store seul.
+- **Zone temps** (`timeline.ts`, `series.ts`) en bas, pour toutes les planches : la
+  frise histogramme de la mesure par année pour les pays et filtres du store (1993
+  hachuré, ruptures de collecte en pointillés), choix de la période (glisser, déplacer la
+  fenêtre, une année, une décennie, clavier), lecture (Espace) et période de comparaison.
+  Réécrite sur `core/` et le cube, et non déplacée : l'ancienne frise de la carte
+  dépendait de son modèle, et un module ne peut pas être importé par le shell. La série
+  ne dépend pas de la période : déplacer la fenêtre ne la recalcule pas.
+- **Carte** : sa barre du bas, son panneau de filtres et son bouton « Partager » sont
+  supprimés (`timebar.ts`). Restent dans sa barre d'outils « Par habitant » (D21) et
+  l'aide des raccourcis. La vue remplit sa boîte (`height: 100%`).
+- **Sources** : le colophon quitte la planche ; le bouton « Sources » du bandeau ouvre la
+  même citation et la licence (conditions d'utilisation de la GTD, section 4.a).
+
+**Points ouverts** : le flux et le classement gardent leurs propres contrôles de
+période et de filtres, redondants avec la barre commune, jusqu'à leur remise en page
+(étapes suivantes) ; les pays restent désignés par `pinned` (carte, flux) et par
+`filters.country` (classement) : à unifier ; la mesure par habitant n'entre pas dans la
+frise ; les règles CSS de l'ancienne barre dans `map.css` (`.cv-timebar` et voisines)
+sont à retirer.
+
+**Vérification** : `npm run typecheck`, `npm test` (série annuelle et planches), navigateur
+à 1440 × 900 et 1280 × 720 : carte, ajout d'un pays, filtre, « Tout effacer », décennie,
+glisser sur la frise, lecture, bouton Sources, redirection de `#v=atlas`.

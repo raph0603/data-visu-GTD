@@ -2,8 +2,9 @@ import { VIEW_LABELS, type ViewId } from '../core/tasks';
 
 /**
  * The site reads as a thematic atlas (D23): each view is a numbered plate that asks
- * one question. The order follows the reading of the questions, not VIEW_IDS. The questions of
- * plates 2 to 4 are to be confirmed with the team that builds them.
+ * one question. The order follows the reading of the questions, not VIEW_IDS. The atlas view has no
+ * plate: the incident by incident reading lives in the map's deepest zoom (D26), and the shell
+ * sends « #v=atlas » to the map.
  */
 export interface Planche {
   readonly id: ViewId;
@@ -27,16 +28,8 @@ export const PLANCHES: readonly Planche[] = [
     summary: 'Le globe des attentats, du monde au pays et à l’incident.',
   },
   {
-    id: 'atlas',
-    n: 2,
-    question: 'Quoi ?',
-    title: 'Que s’est-il passé, incident par incident ?',
-    name: VIEW_LABELS.atlas,
-    summary: 'L’intérieur d’un pays, un attentat après l’autre, avec sa fiche.',
-  },
-  {
     id: 'flow',
-    n: 3,
+    n: 2,
     question: 'Comment ?',
     title: 'Comment les attentats sont-ils commis ?',
     name: VIEW_LABELS.flow,
@@ -44,7 +37,7 @@ export const PLANCHES: readonly Planche[] = [
   },
   {
     id: 'leaderboard',
-    n: 4,
+    n: 3,
     question: 'Qui ?',
     title: 'Qui est le plus touché, qui frappe le plus ?',
     name: VIEW_LABELS.leaderboard,
