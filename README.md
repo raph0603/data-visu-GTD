@@ -23,10 +23,11 @@ Ni le CSV (`data/raw/`) ni les fichiers générés (`public/data/`) ne sont comm
    .venv/Scripts/python -m pip install -r preprocess/requirements.txt   # Windows ; .venv/bin/python ailleurs
    ```
 
-3. **Générer `public/data/gtd/`** (environ 10 s) puis vérifier :
+3. **Générer `public/data/gtd/`** (environ 10 s) puis vérifier. `npm run data:prepare` lance les deux premiers scripts, dont `prepare_flow.py` qui écrit `public/data/gtd/flow/` pour le diagramme de flux (sans lui, la planche 3 affiche « Sankey indisponible ») ; il utilise le `python` du PATH, donc activer le `.venv` avant :
 
    ```bash
    .venv/Scripts/python preprocess/preprocess.py
+   .venv/Scripts/python preprocess/prepare_flow.py data/raw/globalterrorismdb_0718dist.csv public/data/gtd/flow
    .venv/Scripts/python -m pytest preprocess
    npm test                  # inclut src/core/contracts.data.test.ts sur les fichiers générés
    ```

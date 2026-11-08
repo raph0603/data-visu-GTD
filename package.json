@@ -9,7 +9,7 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "data:download": "node --env-file=.env scripts/download-kaggle.mjs",
-    "data:prepare": "python preprocess/preprocess.py",
+    "data:prepare": "python preprocess/preprocess.py && python preprocess/prepare_flow.py data/raw/globalterrorismdb_0718dist.csv public/data/gtd/flow",
     "test": "vitest run",
     "coverage:tasks": "tsx scripts/coverage-report.ts",
     "coverage:tasks:strict": "tsx scripts/coverage-report.ts --strict"
