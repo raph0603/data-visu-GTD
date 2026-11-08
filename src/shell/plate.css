@@ -559,3 +559,70 @@
     display: none;
   }
 }
+
+/* ------------------------------------------------------------------ reading the years on the time zone */
+
+.tl-ticks {
+  position: relative;
+  height: 6px;
+  margin: 1px 7px 0;
+}
+
+.tl-tick {
+  position: absolute;
+  top: 0;
+  height: 3px;
+  border-left: 1px solid #a9a8a2;
+}
+
+.tl-tick.is-five {
+  height: 5px;
+  border-left-color: var(--muted);
+}
+
+.tl-tick.is-ten {
+  height: 6px;
+  border-left-color: var(--ink);
+}
+
+.tl-hover {
+  position: absolute;
+  top: 2px;
+  z-index: 3;
+  padding: 1px 6px;
+  border: 1px solid var(--ink);
+  border-radius: 2px;
+  background: var(--paper);
+  font-size: 11.5px;
+  line-height: 1.5;
+  white-space: nowrap;
+  pointer-events: none;
+  translate: -50% 0;
+}
+
+.tl-tag {
+  position: absolute;
+  top: 3px;
+  padding: 0 4px;
+  border-radius: 2px;
+  background: var(--ink);
+  color: var(--paper);
+  font-size: 10.5px;
+  font-weight: 600;
+  line-height: 15px;
+  white-space: nowrap;
+}
+
+.tl-tag-from {
+  left: 2px;
+}
+
+.tl-tag-to {
+  right: 2px;
+}
+
+@media (max-height: 760px) {
+  .tl-axis {
+    margin-top: 0;
+  }
+}

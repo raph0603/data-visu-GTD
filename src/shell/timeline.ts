@@ -104,8 +104,16 @@ export function createTimeline(parent: HTMLElement, ctx: ModuleContext): Timelin
     bars.append(node);
   }
   const windowBox = el(doc, 'div', 'tl-window');
+  // The years written on the edges of the window: both when it is wide enough, else one tag.
+  const tagFrom = el(doc, 'span', 'tl-tag tl-tag-from');
+  const tagTo = el(doc, 'span', 'tl-tag tl-tag-to');
+  windowBox.append(tagFrom, tagTo);
   bars.append(windowBox);
-  histo.append(bars);
+  // The year under the pointer, with its value.
+  const hover = el(doc, 'div', 'tl-hover');
+  hover.hidden = true;
+  hover.setAttribute('aria-hidden', 'true');
+  histo.append(bars, hover);
   let current: YearRange = store.get().range;
   const ends = (['from', 'to'] as const).map((end) => {
     const input = el(doc, 'input', `tl-range tl-range-${end}`);
@@ -133,7 +141,15 @@ export function createTimeline(parent: HTMLElement, ctx: ModuleContext): Timelin
     node.style.left = `${((year - first + 0.5) / span) * 100}%`;
     return node;
   }
-  main.append(head, histo, axis);
+  // One tick per year, longer every five years and every ten.
+  const ticks = el(doc, 'div', 'tl-ticks');
+  ticks.setAttribute('aria-hidden', 'true');
+  for (let year = first; year <= last; year++) {
+    const tick = el(doc, 'span', year % 10 === 0 ? 'tl-tick is-ten' : year % 5 === 0 ? 'tl-tick is-five' : 'tl-tick');
+    tick.style.left = `${((year - first + 0.5) / span) * 100}%`;
+    ticks.append(tick);
+  }
+  main.append(head, histo, ticks, axis);
 
   // Direct manipulation: drag to brush a period, drag inside it to move it.
   const yearAt = (clientX: number): number => {
@@ -153,6 +169,7 @@ export function createTimeline(parent: HTMLElement, ctx: ModuleContext): Timelin
   });
   bars.addEventListener('pointermove', (event) => {
     const year = yearAt(event.clientX);
+    showHover(year, event.clientX);
     if (drag === null) {
       bars.classList.toggle('is-over-window', movable(year));
       return;
@@ -166,7 +183,20 @@ export function createTimeline(parent: HTMLElement, ctx: ModuleContext): Timelin
       store.set({ range: { from, to: from + length - 1 } });
     }
   });
+  bars.addEventListener('pointerleave', () => {
+    if (drag === null) hover.hidden = true;
+  });
+  function showHover(year: number, clientX: number): void {
+    const metric = metricDef(meta, store.get().metric);
+    const v = series[year - first] ?? Number.NaN;
+    hover.textContent = cube === null ? String(year) : Number.isFinite(v) ? `${year} : ${NUMBER.format(v)} ${metric.unit}` : `${year} : pas de donnée`;
+    hover.hidden = false;
+    const box = histo.getBoundingClientRect();
+    const half = hover.offsetWidth / 2;
+    hover.style.left = `${Math.min(Math.max(clientX - box.left, half), box.width - half)}px`;
+  }
   const release = (event: PointerEvent) => {
+    hover.hidden = true;
     if (drag !== null && !drag.moved && event.type === 'pointerup') {
       const year = yearAt(event.clientX);
       store.set({ range: { from: year, to: year } });
@@ -282,6 +312,7 @@ export function createTimeline(parent: HTMLElement, ctx: ModuleContext): Timelin
   }
 
   // ------------------------------------------------------------------ rendering
+  const onResize = () => drawTags(store.get().range);
   let cube: CubeFile | null = null;
   let series: Float64Array = new Float64Array(span);
 
@@ -291,11 +322,9 @@ export function createTimeline(parent: HTMLElement, ctx: ModuleContext): Timelin
     let max = 0;
     for (const v of series) if (Number.isFinite(v) && v > max) max = v;
     cells.forEach((cell, i) => {
-      const year = first + i;
       const v = series[i] ?? Number.NaN;
       const loaded = cube !== null;
       cell.classList.toggle('is-gap', loaded && !Number.isFinite(v));
-      cell.title = !loaded ? String(year) : Number.isFinite(v) ? `${year} : ${NUMBER.format(v)} ${metric.unit}` : `${year} : pas de donnée (perdues par la source)`;
       const fill = cell.firstElementChild as HTMLElement | null;
       if (fill !== null) fill.style.height = !loaded ? '0%' : Number.isFinite(v) ? `${max > 0 ? Math.max(v > 0 ? 3 : 0, (100 * v) / max) : 0}%` : '100%';
     });
@@ -313,6 +342,7 @@ export function createTimeline(parent: HTMLElement, ctx: ModuleContext): Timelin
     cells.forEach((cell, i) => cell.classList.toggle('is-in', first + i >= state.range.from && first + i <= state.range.to));
     windowBox.style.left = `${((state.range.from - first) / span) * 100}%`;
     windowBox.style.width = `${(rangeLength(state.range) / span) * 100}%`;
+    drawTags(state.range);
     presetList.forEach((preset, i) => {
       const on = preset.range.from === state.range.from && preset.range.to === state.range.to;
       presetButtons[i]?.classList.toggle('is-active', on);
@@ -330,6 +360,14 @@ export function createTimeline(parent: HTMLElement, ctx: ModuleContext): Timelin
     compareButton.title = 'Choisir la période à laquelle comparer l’évolution';
   }
 
+  function drawTags(range: YearRange): void {
+    const widthPx = (rangeLength(range) / span) * bars.clientWidth;
+    const single = range.from === range.to || widthPx < 84;
+    tagFrom.textContent = single ? formatYears(range) : String(range.from);
+    tagTo.textContent = String(range.to);
+    tagTo.hidden = single;
+  }
+
   function recompute(): void {
     if (cube !== null) series = yearlySeries(cube, meta, store.get());
     drawBars();
@@ -337,6 +375,9 @@ export function createTimeline(parent: HTMLElement, ctx: ModuleContext): Timelin
 
   drawWindow();
   drawBars();
+  // The tags depend on the width of the histogram, known once it is laid out and when it changes.
+  const resizer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(onResize);
+  resizer?.observe(bars);
   void data.cube().then((file) => {
     cube = file;
     recompute();
@@ -359,6 +400,7 @@ export function createTimeline(parent: HTMLElement, ctx: ModuleContext): Timelin
       stopPlay();
       offs.forEach((off) => off());
       doc.removeEventListener('pointerdown', onOutside);
+      resizer?.disconnect();
       zone.remove();
     },
   };

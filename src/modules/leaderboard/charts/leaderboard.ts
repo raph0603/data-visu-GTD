@@ -16,6 +16,9 @@ type ChartFrame = {
 };
 
 
+/** Up to this many rows the chart fits its box by thinning its bars; beyond, its box scrolls. */
+const MAX_UNSCROLLED_ROWS = 20;
+
 export class LeaderboardChart {
   private svg;
   private axis;
@@ -97,15 +100,20 @@ export class LeaderboardChart {
     const slots = Math.max(3, frame.slotCount ?? frame.rows.length);
     // Alone in its page the chart has 38 px rows and leaves 92 px under them for the summary curve. In
     // a box of its own height (is-fit) the curve sits under the rows, and the rows take what is left:
-    // thick bars (up to 64 px) when there is room, down to 16 px when there is not (then the box scrolls).
+    // thick bars (up to 64 px) when there is room. Up to 20 rows the box never changes and never
+    // scrolls: the bars get thinner instead (down to 10 px rows). Beyond 20 the rows keep 16 px and
+    // the box scrolls.
     const fit = this.container.classList.contains("is-fit");
     const bottom = fit ? 8 : 92;
     const panelHeight = fit ? this.container.querySelector<HTMLElement>(".timeline-summary-panel")?.offsetHeight || 96 : 0;
-    const rowHeight = fit ? Math.max(16, Math.min(64, (this.container.clientHeight - 12 - top - bottom - panelHeight) / slots)) : 38;
-    const barHeight = fit ? Math.max(8, Math.round(rowHeight - 8)) : 28;
+    const fitsWithoutScroll = fit && slots <= MAX_UNSCROLLED_ROWS;
+    const free = this.container.clientHeight - 12 - top - bottom - panelHeight - 1;
+    const rowHeight = fit ? Math.max(fitsWithoutScroll ? 10 : 16, Math.min(64, Math.floor((free / slots) * 10) / 10)) : 38;
+    if (fit) this.container.style.overflowY = fitsWithoutScroll ? "hidden" : "";
+    const barHeight = fit ? Math.max(6, Math.round(rowHeight - 8)) : 28;
     const barY = fit ? Math.round((rowHeight - barHeight) / 2) : 3;
     // Labels grow with thick bars; the legacy chart keeps its 12 px.
-    const fontSize = fit ? Math.max(12, Math.min(17, Math.round(rowHeight * 0.32))) : 12;
+    const fontSize = fit ? Math.max(rowHeight < 14 ? 10 : 12, Math.min(17, Math.round(rowHeight * 0.32))) : 12;
     const textY = fit ? Math.round(rowHeight / 2 + fontSize / 3) : 21;
     const height = top + slots * rowHeight + bottom;
     select(this.container).style("--plot-left", `${left}px`).style("--plot-right", `${right}px`);
