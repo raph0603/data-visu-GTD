@@ -96,15 +96,17 @@ export class LeaderboardChart {
     const top = 96;
     const slots = Math.max(3, frame.slotCount ?? frame.rows.length);
     // Alone in its page the chart has 38 px rows and leaves 92 px under them for the summary curve. In
-    // a box of its own height (is-fit) the curve sits under the rows, and the rows shrink to what is
-    // left, down to 16 px (then the box scrolls).
+    // a box of its own height (is-fit) the curve sits under the rows, and the rows take what is left:
+    // thick bars (up to 64 px) when there is room, down to 16 px when there is not (then the box scrolls).
     const fit = this.container.classList.contains("is-fit");
     const bottom = fit ? 8 : 92;
     const panelHeight = fit ? this.container.querySelector<HTMLElement>(".timeline-summary-panel")?.offsetHeight || 96 : 0;
-    const rowHeight = fit ? Math.max(16, Math.min(38, (this.container.clientHeight - 12 - top - bottom - panelHeight) / slots)) : 38;
+    const rowHeight = fit ? Math.max(16, Math.min(64, (this.container.clientHeight - 12 - top - bottom - panelHeight) / slots)) : 38;
     const barHeight = fit ? Math.max(8, Math.round(rowHeight - 8)) : 28;
     const barY = fit ? Math.round((rowHeight - barHeight) / 2) : 3;
-    const textY = fit ? Math.round(rowHeight / 2 + 4) : 21;
+    // Labels grow with thick bars; the legacy chart keeps its 12 px.
+    const fontSize = fit ? Math.max(12, Math.min(17, Math.round(rowHeight * 0.32))) : 12;
+    const textY = fit ? Math.round(rowHeight / 2 + fontSize / 3) : 21;
     const height = top + slots * rowHeight + bottom;
     select(this.container).style("--plot-left", `${left}px`).style("--plot-right", `${right}px`);
     const data: ChartRow[] = frame.rows.map((row, rank) => ({ ...row, rank, value: row[frame.metric] ?? 0 }));
@@ -153,7 +155,7 @@ export class LeaderboardChart {
       .data(data.length ? Array.from({ length: slots }, (_, index) => index + 1) : [])
       .join("text").attr("class", "leaderboard-rank")
       .attr("x", 10).attr("y", (rank) => top + (rank - 1) * rowHeight + textY)
-      .attr("font-size", 11).attr("fill", "var(--muted)").text((rank) => rank);
+      .attr("font-size", Math.max(11, fontSize - 1)).attr("fill", "var(--muted)").text((rank) => rank);
 
     const targetValues = new Map((frame.allRows ?? frame.rows).map((row) => [row.category, row[frame.metric] ?? 0]));
     const tracks = [...new Set([...previousValues.keys(), ...targetValues.keys()])].map((category) => ({
@@ -200,11 +202,11 @@ export class LeaderboardChart {
         .attr("opacity", (row) => row.opacity).attr("transform", (row) => `translate(0,${top + row.position * rowHeight})`);
       rows.select("rect").attr("x", left).attr("y", barY).attr("height", barHeight).attr("width", (row) => widthAt(row.value, time))
         .attr("fill", (row) => this.color(row.category));
-      rows.select("text.leaderboard-category").attr("x", left - 12).attr("y", textY).text((row) => {
-        const length = Math.floor((left - 42) / 6.5);
+      rows.select("text.leaderboard-category").attr("x", left - 12).attr("y", textY).attr("font-size", fontSize).text((row) => {
+        const length = Math.floor((left - 42) / (fontSize * 0.54));
         return row.category.length > length ? `${row.category.slice(0, length - 1)}…` : row.category;
       });
-      rows.select("text.leaderboard-value").attr("y", textY).attr("x", (row) => left + widthAt(row.value, time) + 8)
+      rows.select("text.leaderboard-value").attr("y", textY).attr("font-size", fontSize).attr("x", (row) => left + widthAt(row.value, time) + 8)
         .attr("data-value", (row) => row.value).text((row) => this.value(row.value, frame.metric));
       rows.select("title").text((row) => {
         const known = frame.metric === "attacks" ? row.attacks

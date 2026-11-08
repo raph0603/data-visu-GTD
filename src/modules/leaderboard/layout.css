@@ -1,59 +1,61 @@
 /*
- * The leaderboard in the plate's box (D31): a toolbar, a one-line summary, the ranking filling the
- * rest, the playback under it. layout.ts moves the controls into these places; leaderboard.css
- * styles them, so this file comes after it and wins by its specificity.
+ * The leaderboard in the plate's box (D31, D32): a narrow column on the left with every setting of
+ * the view, none of it scrolling, and the ranking beside it, as tall as the box. layout.ts moves the
+ * controls into these places; leaderboard.css styles them, so this file comes after it and wins by
+ * its specificity. The settings used less often open as panels beside the column.
  */
 .leaderboard-view.is-arranged {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: 264px minmax(0, 1fr);
   height: 100%;
   min-height: 0;
   background: var(--paper, #fff);
 }
 
-/* ------------------------------------------------------------------ toolbar */
+/* ------------------------------------------------------------------ the column */
 
-.leaderboard-view.is-arranged .lb-bar {
+.leaderboard-view.is-arranged .lb-side {
+  position: relative;
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 6px 14px;
-  padding: 8px 20px;
-  border-bottom: 1px solid var(--rule, #d6d5cf);
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+  padding: 12px 14px;
+  border-right: 1px solid var(--rule, #d6d5cf);
+  background: var(--wash, #f6f6f3);
+  font-size: 12.5px;
 }
 
-.leaderboard-view.is-arranged .lb-group {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px 12px;
+.leaderboard-view.is-arranged .lb-block {
+  display: grid;
+  gap: 8px;
 }
 
-.leaderboard-view.is-arranged .lb-end {
-  margin-left: auto;
-  gap: 6px;
+.leaderboard-view.is-arranged .lb-pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
 }
 
-.leaderboard-view.is-arranged .lb-bar .control-field {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 6px;
+.leaderboard-view.is-arranged .lb-side .control-field {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
   margin: 0;
 }
 
-.leaderboard-view.is-arranged .lb-bar .control-field label {
+.leaderboard-view.is-arranged .lb-side .control-field label {
   margin: 0;
   font-size: 12px;
   color: var(--muted, #5f5e5a);
-  white-space: nowrap;
 }
 
-.leaderboard-view.is-arranged .lb-bar select,
+.leaderboard-view.is-arranged .lb-side select,
 .leaderboard-view.is-arranged .lb-btn {
+  width: 100%;
+  min-width: 0;
   min-height: 32px;
-  padding: 0 10px;
+  padding: 0 8px;
   border: 1px solid var(--strong-line, #c9c8c1);
   border-radius: 2px;
   background: var(--paper, #fff);
@@ -67,10 +69,6 @@
   white-space: nowrap;
 }
 
-.leaderboard-view.is-arranged .lb-bar select {
-  max-width: 190px;
-}
-
 .leaderboard-view.is-arranged .lb-btn:hover,
 .leaderboard-view.is-arranged .lb-btn.is-open {
   border-color: var(--ink, #1d1d1b);
@@ -81,20 +79,31 @@
   color: var(--paper, #fff);
 }
 
+.leaderboard-view.is-arranged .lb-panels {
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+
+.leaderboard-view.is-arranged .lb-panels .lb-btn {
+  padding: 0 4px;
+}
+
+/* The panels open beside the column, over the ranking, from its top edge. */
 .leaderboard-view.is-arranged .lb-popwrap {
-  position: relative;
+  position: static;
+  display: contents;
 }
 
 .leaderboard-view.is-arranged .lb-pop {
   position: absolute;
-  top: calc(100% + 6px);
-  right: 0;
+  top: 0;
+  left: calc(100% + 8px);
   z-index: 40;
   display: grid;
   gap: 10px;
   width: 340px;
-  max-width: calc(100vw - 40px);
-  max-height: min(70vh, 560px);
+  max-width: calc(100vw - 300px);
+  max-height: 100%;
   padding: 14px;
   overflow: auto;
   border: 1px solid var(--ink, #1d1d1b);
@@ -103,7 +112,7 @@
 }
 
 .leaderboard-view.is-arranged .lb-pop-wide {
-  width: min(720px, calc(100vw - 40px));
+  width: min(720px, calc(100vw - 300px));
 }
 
 .leaderboard-view.is-arranged .lb-pop-note {
@@ -115,12 +124,6 @@
 .leaderboard-view.is-arranged .lb-pop .control-field {
   display: grid;
   gap: 4px;
-  margin: 0;
-}
-
-.leaderboard-view.is-arranged .lb-pop select,
-.leaderboard-view.is-arranged .lb-pop input[type='number'] {
-  width: 100%;
 }
 
 .leaderboard-view.is-arranged .lb-pop .category-groups-panel {
@@ -147,27 +150,25 @@
   overflow: auto;
 }
 
-/* ------------------------------------------------------------------ summary */
+/* ------------------------------------------------------------------ figures */
 
 .leaderboard-view.is-arranged .lb-summary {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 2px 24px;
-  padding: 6px 20px;
-  border-bottom: 1px solid var(--rule, #d6d5cf);
+  gap: 4px;
+  padding-top: 10px;
+  border-top: 1px solid var(--rule, #d6d5cf);
 }
 
 .leaderboard-view.is-arranged .lb-summary .kpis {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 2px 20px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 2px;
   margin: 0;
 }
 
 .leaderboard-view.is-arranged .lb-summary .kpi {
   display: flex;
   flex-direction: row;
+  flex-wrap: nowrap;
   align-items: baseline;
   gap: 6px;
   padding: 0;
@@ -191,19 +192,106 @@
   font-size: 12px;
 }
 
+/* The count of categories is in the summary line below. */
+.leaderboard-view.is-arranged .lb-summary .kpi:nth-child(3) {
+  display: none;
+}
+
 .leaderboard-view.is-arranged .lb-summary .selection-summary {
   margin: 0;
   padding: 0;
   border: 0;
+  font-size: 11.5px;
+  line-height: 1.4;
+}
+
+/* ------------------------------------------------------------------ playback */
+
+.leaderboard-view.is-arranged .lb-transport {
+  margin-top: auto;
+  padding-top: 10px;
+  border-top: 1px solid var(--ink, #1d1d1b);
+}
+
+.leaderboard-view.is-arranged .lb-transport .animation-toolbar {
+  display: grid;
+  gap: 6px;
+  padding: 0;
+  border: 0;
+}
+
+.leaderboard-view.is-arranged .lb-transport .playback-controls {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin: 0;
+}
+
+.leaderboard-view.is-arranged .lb-transport .playback-controls button {
+  min-height: 30px;
+  padding: 0 6px;
+  font-size: 12.5px;
+}
+
+.leaderboard-view.is-arranged .lb-transport .playback-controls > button:first-child,
+.leaderboard-view.is-arranged .lb-transport .speed-control {
+  grid-column: 1 / -1;
+}
+
+.leaderboard-view.is-arranged .lb-transport .speed-control {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+}
+
+.leaderboard-view.is-arranged .lb-transport .speed-control input {
+  flex: 1;
+  min-width: 80px;
+  margin: 0;
+}
+
+.leaderboard-view.is-arranged .lb-transport .speed-control output {
+  min-width: 0;
   font-size: 12px;
 }
 
-/* ------------------------------------------------------------------ the ranking, filling what is left */
+.leaderboard-view.is-arranged .lb-transport .control-inline {
+  margin: 0;
+}
+
+/* The displayed period: its label and its list on one line. */
+.leaderboard-view.is-arranged .lb-transport > .animation-toolbar > .control-inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.leaderboard-view.is-arranged .lb-transport > .animation-toolbar > .control-inline label {
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.leaderboard-view.is-arranged .lb-transport > .animation-toolbar > .control-inline select {
+  flex: 1;
+}
+
+/* Read out by screen readers; the buttons already say what is playing. */
+.leaderboard-view.is-arranged .lb-transport .playback-status {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* ------------------------------------------------------------------ the ranking, as tall as the box */
 
 .leaderboard-view.is-arranged .lb-stage {
   display: flex;
-  flex: 1;
   flex-direction: column;
+  min-width: 0;
   min-height: 0;
 }
 
@@ -228,40 +316,4 @@
   right: auto;
   margin: 0 calc(var(--plot-right, 88px) - 12px) 0 calc(var(--plot-left, 128px) - 12px);
   background: var(--paper, #fff);
-}
-
-/* ------------------------------------------------------------------ playback */
-
-.leaderboard-view.is-arranged .lb-transport {
-  border-top: 1px solid var(--ink, #1d1d1b);
-}
-
-.leaderboard-view.is-arranged .lb-transport .animation-toolbar {
-  gap: 4px 14px;
-  padding: 6px 20px;
-  border: 0;
-}
-
-.leaderboard-view.is-arranged .lb-transport .playback-controls {
-  flex: 1 1 auto;
-  margin: 0;
-}
-
-.leaderboard-view.is-arranged .lb-transport .playback-controls button {
-  min-height: 32px;
-  font-size: 12.5px;
-}
-
-.leaderboard-view.is-arranged .lb-transport .control-inline {
-  margin: 0;
-}
-
-/* Read out by screen readers; the buttons already say what is playing. */
-.leaderboard-view.is-arranged .lb-transport .playback-status {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
 }
