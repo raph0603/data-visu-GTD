@@ -1114,3 +1114,12 @@ avoir le focus : la carte l'a après un clic dessus, pas après un lien profond.
 **Vérification** : `npm run typecheck`, `npm test` (168, dont 11 pour
 `neighbour.ts`) ; navigateur : Irak, pile de 9 attentats à Bagdad parcourue de
 1/9 à 9/9 puis quittée, flèches vers un attentat isolé, recentrage au bord.
+
+
+## D27 — Classement animé dans la planche 4 (2 novembre 2026)
+
+Le leaderboard remplace son squelette dans le shell de l’atlas et occupe la quatrième position. La planche des incidents passe en position 2. Les styles restent limités au module ; la typographie, les filets, les fonds et les couleurs viennent du système commun.
+
+Un chargement paresseux supplémentaire, `DataApi.leaderboard()`, conserve les filtres de province, ville, sous-types, réussite et doute sans charger le CSV dans le navigateur ni alourdir les fichiers de la carte. `preprocess/preprocess.py` écrit `leaderboard.json` sous forme de colonnes et de dictionnaires (13,3 Mo sur l’export 2017). Le nouveau contrat est isolé dans `core/leaderboard-data.ts` ; les contrats existants restent inchangés. Les noms source demeurent dans l’adaptateur Python.
+
+Les filtres de pays partagés utilisent les codes ISO, tandis que les libellés historiques restent distincts dans le classement. Les incidents sans coordonnées ou pays représentable sont conservés. Les années absentes, zéros et valeurs inconnues gardent leur sens ; sommes conjointes et moyennes sont recalculées à partir des incidents filtrés. Les abonnements, observateurs et animations sont libérés au démontage, y compris lorsqu’un chargement se termine après la navigation.
