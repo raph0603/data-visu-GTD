@@ -1195,7 +1195,7 @@ lui, lisait les trois. La mesure commune n'atteignait pas le flux.
 - **Les pays explorés sont les pays de `pinned`** (`focus` suit le dernier, comme dans la
   sélection de la carte). Un filtre `country` n'est plus écrit par personne ; il n'est lu
   que si rien n'est épinglé, pour qu'un ancien lien s'ouvre encore sur son pays, et le
-  classement le migre dans `pinned` à sa première publication.
+  classement le migre dans `pinned` au premier changement d'un de ses contrôles (la barre de contexte l'affiche d'ici là comme un filtre).
 - **Classement** (`shared-countries.ts`, `index.ts`) : son sélecteur de pays lit `pinned`
   (un pays : son nom ; plusieurs : « n pays sélectionnés ») et y écrit ; les incidents sont
   filtrés par ces pays. Choisir « Tous » retire les pays de la barre commune.
@@ -1208,7 +1208,7 @@ lui, lisait les trois. La mesure commune n'atteignait pas le flux.
 valeur par défaut (`x.leaderboard.*`), ce qui allonge les liens ; ses filtres de province,
 ville et sous-types restent locaux.
 
-**Vérification** : `npm run typecheck`, `npm test` ; navigateur : Irak ajouté dans la
+**Vérification** : `npm run typecheck`, `npm test` (225, dont les pays épinglés du classement et un ancien lien) ; navigateur : Irak ajouté dans la
 barre, repris par le classement (« Iraq », 1 179 incidents en 2010) et par le flux
 (« Irak — modes opératoires », 24 636 incidents) ; « France » choisie dans le classement
 devient la pastille de la barre, « Tous » la retire ; les mesures Morts et Blessés
