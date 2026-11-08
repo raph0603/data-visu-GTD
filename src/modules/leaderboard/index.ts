@@ -9,6 +9,8 @@ import { LeaderboardChart } from "./charts/leaderboard";
 import { TimelineSummaryChart } from "./charts/timeline-summary";
 import { closestFrameIndex, summarizeFrames } from "./data/timeline-summary";
 import "./leaderboard.css";
+import "./layout.css";
+import { arrangeLayout } from "./layout";
 import { countriesPatch, filtersWithCountries, sharedCountryIds } from "./shared-countries";
 
 const sessionGroups = new WeakMap<ModuleContext["store"], Map<Dimension, CategoryGroup[]>>();
@@ -16,6 +18,7 @@ const sessionGroups = new WeakMap<ModuleContext["store"], Map<Dimension, Categor
 export function mountLeaderboard(host: HTMLElement, ctx: ModuleContext): ModuleHandle {
   const app = select(host).append("div").attr("class", "leaderboard-view");
   let disposed = false;
+  const layoutAbort = new AbortController();
   let cleanup = () => {};
   let applySharedState = () => {};
   const unsubscribe = ctx.store.subscribe((state) => state, () => applySharedState());
@@ -639,6 +642,9 @@ export function mountLeaderboard(host: HTMLElement, ctx: ModuleContext): ModuleH
       };
       applySharedState = () => syncFromStore();
       syncFromStore();
+      // The controls are all built and wired: set them out in the plate's box.
+      arrangeLayout(app.node()!, layoutAbort.signal);
+      update();
 
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -650,6 +656,7 @@ export function mountLeaderboard(host: HTMLElement, ctx: ModuleContext): ModuleH
   void displayData();
   return { destroy() {
     disposed = true;
+    layoutAbort.abort();
     unsubscribe();
     cleanup();
     app.remove();

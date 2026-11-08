@@ -28,6 +28,7 @@ export class LeaderboardChart {
   private format = new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 2 });
   private observer: ResizeObserver;
   private observedWidth: number;
+  private observedHeight: number;
   private currentMaximum = 1;
   private currentMetric: Metric | undefined;
   private currentValues = new Map<string, number>();
@@ -38,6 +39,7 @@ export class LeaderboardChart {
 
   constructor(private container: HTMLElement, private palette: PaletteApi) {
     this.observedWidth = container.clientWidth;
+    this.observedHeight = container.clientHeight;
     this.svg = select(container).append("svg").attr("role", "img")
       .attr("class", "leaderboard-chart").attr("width", "100%");
     this.svg.append("title").text("Classement temporel sous forme de barres horizontales");
@@ -59,8 +61,12 @@ export class LeaderboardChart {
     this.tooltip.append("p").attr("class", "tooltip-detail");
     this.observer = new ResizeObserver(() => {
       const width = container.clientWidth;
-      if (width !== this.observedWidth) {
+      const height = container.clientHeight;
+      // In a box of its own height (class is-fit) the rows follow the height as well as the width.
+      const fitted = container.classList.contains("is-fit") && height !== this.observedHeight;
+      if (width !== this.observedWidth || fitted) {
         this.observedWidth = width;
+        this.observedHeight = height;
         if (this.lastFrame) this.render(this.lastFrame, 0);
       }
     });
@@ -88,9 +94,18 @@ export class LeaderboardChart {
     const left = Math.max(112, Math.min(220, width * 0.24));
     const right = 88;
     const top = 96;
-    const rowHeight = 38;
     const slots = Math.max(3, frame.slotCount ?? frame.rows.length);
-    const height = top + slots * rowHeight + 92;
+    // Alone in its page the chart has 38 px rows and leaves 92 px under them for the summary curve. In
+    // a box of its own height (is-fit) the curve sits under the rows, and the rows shrink to what is
+    // left, down to 16 px (then the box scrolls).
+    const fit = this.container.classList.contains("is-fit");
+    const bottom = fit ? 8 : 92;
+    const panelHeight = fit ? this.container.querySelector<HTMLElement>(".timeline-summary-panel")?.offsetHeight || 96 : 0;
+    const rowHeight = fit ? Math.max(16, Math.min(38, (this.container.clientHeight - 12 - top - bottom - panelHeight) / slots)) : 38;
+    const barHeight = fit ? Math.max(8, Math.round(rowHeight - 8)) : 28;
+    const barY = fit ? Math.round((rowHeight - barHeight) / 2) : 3;
+    const textY = fit ? Math.round(rowHeight / 2 + 4) : 21;
+    const height = top + slots * rowHeight + bottom;
     select(this.container).style("--plot-left", `${left}px`).style("--plot-right", `${right}px`);
     const data: ChartRow[] = frame.rows.map((row, rank) => ({ ...row, rank, value: row[frame.metric] ?? 0 }));
     const largest = Math.max(0, ...data.map((row) => row.value));
@@ -137,7 +152,7 @@ export class LeaderboardChart {
     this.ranks.selectAll<SVGTextElement, number>("text.leaderboard-rank")
       .data(data.length ? Array.from({ length: slots }, (_, index) => index + 1) : [])
       .join("text").attr("class", "leaderboard-rank")
-      .attr("x", 10).attr("y", (rank) => top + (rank - 1) * rowHeight + 21)
+      .attr("x", 10).attr("y", (rank) => top + (rank - 1) * rowHeight + textY)
       .attr("font-size", 11).attr("fill", "var(--muted)").text((rank) => rank);
 
     const targetValues = new Map((frame.allRows ?? frame.rows).map((row) => [row.category, row[frame.metric] ?? 0]));
@@ -183,13 +198,13 @@ export class LeaderboardChart {
         .attr("aria-label", (row) => `${row.category}, ${metrics[frame.metric]} : ${this.value(row.value, frame.metric)}, ${frame.periodLabel ?? frame.year}`)
         .attr("data-value", (row) => row.value).attr("data-position", (row) => row.position)
         .attr("opacity", (row) => row.opacity).attr("transform", (row) => `translate(0,${top + row.position * rowHeight})`);
-      rows.select("rect").attr("x", left).attr("width", (row) => widthAt(row.value, time))
+      rows.select("rect").attr("x", left).attr("y", barY).attr("height", barHeight).attr("width", (row) => widthAt(row.value, time))
         .attr("fill", (row) => this.color(row.category));
-      rows.select("text.leaderboard-category").attr("x", left - 12).text((row) => {
+      rows.select("text.leaderboard-category").attr("x", left - 12).attr("y", textY).text((row) => {
         const length = Math.floor((left - 42) / 6.5);
         return row.category.length > length ? `${row.category.slice(0, length - 1)}…` : row.category;
       });
-      rows.select("text.leaderboard-value").attr("x", (row) => left + widthAt(row.value, time) + 8)
+      rows.select("text.leaderboard-value").attr("y", textY).attr("x", (row) => left + widthAt(row.value, time) + 8)
         .attr("data-value", (row) => row.value).text((row) => this.value(row.value, frame.metric));
       rows.select("title").text((row) => {
         const known = frame.metric === "attacks" ? row.attacks

@@ -1,0 +1,267 @@
+/*
+ * The leaderboard in the plate's box (D31): a toolbar, a one-line summary, the ranking filling the
+ * rest, the playback under it. layout.ts moves the controls into these places; leaderboard.css
+ * styles them, so this file comes after it and wins by its specificity.
+ */
+.leaderboard-view.is-arranged {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  background: var(--paper, #fff);
+}
+
+/* ------------------------------------------------------------------ toolbar */
+
+.leaderboard-view.is-arranged .lb-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px 14px;
+  padding: 8px 20px;
+  border-bottom: 1px solid var(--rule, #d6d5cf);
+}
+
+.leaderboard-view.is-arranged .lb-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+}
+
+.leaderboard-view.is-arranged .lb-end {
+  margin-left: auto;
+  gap: 6px;
+}
+
+.leaderboard-view.is-arranged .lb-bar .control-field {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+}
+
+.leaderboard-view.is-arranged .lb-bar .control-field label {
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted, #5f5e5a);
+  white-space: nowrap;
+}
+
+.leaderboard-view.is-arranged .lb-bar select,
+.leaderboard-view.is-arranged .lb-btn {
+  min-height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--strong-line, #c9c8c1);
+  border-radius: 2px;
+  background: var(--paper, #fff);
+  color: var(--ink, #1d1d1b);
+  font: inherit;
+  font-size: 12.5px;
+}
+
+.leaderboard-view.is-arranged .lb-btn {
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.leaderboard-view.is-arranged .lb-bar select {
+  max-width: 190px;
+}
+
+.leaderboard-view.is-arranged .lb-btn:hover,
+.leaderboard-view.is-arranged .lb-btn.is-open {
+  border-color: var(--ink, #1d1d1b);
+}
+
+.leaderboard-view.is-arranged .lb-btn.is-open {
+  background: var(--ink, #1d1d1b);
+  color: var(--paper, #fff);
+}
+
+.leaderboard-view.is-arranged .lb-popwrap {
+  position: relative;
+}
+
+.leaderboard-view.is-arranged .lb-pop {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 40;
+  display: grid;
+  gap: 10px;
+  width: 340px;
+  max-width: calc(100vw - 40px);
+  max-height: min(70vh, 560px);
+  padding: 14px;
+  overflow: auto;
+  border: 1px solid var(--ink, #1d1d1b);
+  border-radius: 2px;
+  background: var(--paper, #fff);
+}
+
+.leaderboard-view.is-arranged .lb-pop-wide {
+  width: min(720px, calc(100vw - 40px));
+}
+
+.leaderboard-view.is-arranged .lb-pop-note {
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted, #5f5e5a);
+}
+
+.leaderboard-view.is-arranged .lb-pop .control-field {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+}
+
+.leaderboard-view.is-arranged .lb-pop select,
+.leaderboard-view.is-arranged .lb-pop input[type='number'] {
+  width: 100%;
+}
+
+.leaderboard-view.is-arranged .lb-pop .category-groups-panel {
+  padding: 0;
+  border: 0;
+}
+
+.leaderboard-view.is-arranged .lb-pop .category-groups-panel > summary {
+  display: none;
+}
+
+.leaderboard-view.is-arranged .lb-pop .source-notes {
+  padding: 0;
+}
+
+.leaderboard-view.is-arranged .lb-pop .preview-section {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.leaderboard-view.is-arranged .lb-pop .data-preview {
+  max-height: 50vh;
+  overflow: auto;
+}
+
+/* ------------------------------------------------------------------ summary */
+
+.leaderboard-view.is-arranged .lb-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 24px;
+  padding: 6px 20px;
+  border-bottom: 1px solid var(--rule, #d6d5cf);
+}
+
+.leaderboard-view.is-arranged .lb-summary .kpis {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 20px;
+  margin: 0;
+}
+
+.leaderboard-view.is-arranged .lb-summary .kpi {
+  display: flex;
+  flex-direction: row;
+  align-items: baseline;
+  gap: 6px;
+  padding: 0;
+  border: 0;
+  white-space: nowrap;
+}
+
+.leaderboard-view.is-arranged .lb-summary .kpi strong,
+.leaderboard-view.is-arranged .lb-summary .kpi strong.period-value {
+  order: 1;
+  font-size: 16px;
+  font-weight: 650;
+  line-height: inherit;
+  letter-spacing: 0;
+}
+
+.leaderboard-view.is-arranged .lb-summary .kpi-label {
+  order: 2;
+  display: inline;
+  margin: 0;
+  font-size: 12px;
+}
+
+.leaderboard-view.is-arranged .lb-summary .selection-summary {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  font-size: 12px;
+}
+
+/* ------------------------------------------------------------------ the ranking, filling what is left */
+
+.leaderboard-view.is-arranged .lb-stage {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.leaderboard-view.is-arranged .lb-stage .leaderboard-visualization {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.leaderboard-view.is-arranged .lb-stage .leaderboard-container {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+/* The summary curve sits under the rows, and stays in view when many rows scroll. */
+.leaderboard-view.is-arranged .lb-stage .timeline-summary-panel {
+  position: sticky;
+  bottom: 0;
+  left: auto;
+  right: auto;
+  margin: 0 calc(var(--plot-right, 88px) - 12px) 0 calc(var(--plot-left, 128px) - 12px);
+  background: var(--paper, #fff);
+}
+
+/* ------------------------------------------------------------------ playback */
+
+.leaderboard-view.is-arranged .lb-transport {
+  border-top: 1px solid var(--ink, #1d1d1b);
+}
+
+.leaderboard-view.is-arranged .lb-transport .animation-toolbar {
+  gap: 4px 14px;
+  padding: 6px 20px;
+  border: 0;
+}
+
+.leaderboard-view.is-arranged .lb-transport .playback-controls {
+  flex: 1 1 auto;
+  margin: 0;
+}
+
+.leaderboard-view.is-arranged .lb-transport .playback-controls button {
+  min-height: 32px;
+  font-size: 12.5px;
+}
+
+.leaderboard-view.is-arranged .lb-transport .control-inline {
+  margin: 0;
+}
+
+/* Read out by screen readers; the buttons already say what is playing. */
+.leaderboard-view.is-arranged .lb-transport .playback-status {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
