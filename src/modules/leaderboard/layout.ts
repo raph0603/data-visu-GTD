@@ -1,7 +1,7 @@
 /**
- * Sets the leaderboard out in its plate's box (D31): a toolbar, a one-line summary, the ranking
- * filling the rest, and the playback under it. The page was a filter column, a heading, three
- * figures, a settings card, a toolbar and the chart far below.
+ * Sets the leaderboard out in its plate's box (D31, D32): a narrow column on the left with every
+ * setting of the view, and the ranking beside it, as tall as the box. The page was a filter
+ * column, a heading, three figures, a settings card, a toolbar and the chart far below.
  *
  * The view builds its DOM as it always did and every control keeps its node, its id and its
  * listeners; this only moves the nodes into their new places. What the shell now holds (the period,
@@ -28,12 +28,15 @@ export function arrangeLayout(app: HTMLElement, signal: AbortSignal): void {
   // Still in the view while the controls are taken out of it, so that they can be found.
   app.append(legacy);
 
-  // ------------------------------------------------------------------ toolbar
-  const bar = make('header', 'lb-bar');
-  bar.setAttribute('aria-label', 'Réglages du classement');
-  const fields = make('div', 'lb-group');
-  take([wrapperOf('dimension'), wrapperOf('metric'), wrapperOf('limit'), wrapperOf('calculation')], fields);
-  const panels = make('div', 'lb-group lb-end');
+  // ------------------------------------------------------------------ the column: what is ranked, panels, figures, playback
+  const side = make('aside', 'lb-side');
+  side.setAttribute('aria-label', 'Réglages du classement');
+  const fields = make('div', 'lb-block lb-fields');
+  const pair = make('div', 'lb-pair');
+  take([wrapperOf('dimension'), wrapperOf('limit')], pair);
+  fields.append(pair);
+  take([wrapperOf('metric')], fields);
+  const panels = make('div', 'lb-block lb-panels');
 
   const popovers: HTMLElement[] = [];
   const panel = (label: string, body: readonly (HTMLElement | null)[], wide = false, note?: string): void => {
@@ -73,28 +76,28 @@ export function arrangeLayout(app: HTMLElement, signal: AbortSignal): void {
     false,
     'La période, les pays, les organisations, les types d’attaque, de cible et d’arme se règlent dans la barre du haut et la frise.',
   );
-  panel('Options', [wrapperOf('minimum-attacks'), wrapperOf('aggregation'), wrapperOf('exclude-unknown')]);
+  panel('Options', [wrapperOf('calculation'), wrapperOf('minimum-attacks'), wrapperOf('aggregation'), wrapperOf('exclude-unknown')]);
   panel('Regrouper', [details('.category-groups-panel')], true);
   panel('Repères', [one('.source-notes')], true);
   panel('Données', [details('.preview-section')], true);
-  bar.append(fields, panels);
 
-  // ------------------------------------------------------------------ summary, ranking, playback
-  const summary = make('section', 'lb-summary');
+  const summary = make('div', 'lb-block lb-summary');
   summary.setAttribute('aria-label', 'Période et sélection');
   take([one('.kpis'), one('.selection-summary')], summary);
 
+  const transport = make('div', 'lb-block lb-transport');
+  transport.setAttribute('aria-label', 'Lecture');
+  take([one('.animation-toolbar')], transport);
+  side.append(fields, panels, summary, transport);
+
+  // ------------------------------------------------------------------ the ranking, as tall as the box
   const stage = make('section', 'lb-stage');
   stage.setAttribute('aria-label', 'Classement');
   const container = one('.leaderboard-container');
   container?.classList.add('is-fit');
   take([one('.leaderboard-visualization')], stage);
 
-  const transport = make('section', 'lb-transport');
-  transport.setAttribute('aria-label', 'Lecture');
-  take([one('.animation-toolbar')], transport);
-
-  legacy.before(bar, summary, stage, transport);
+  legacy.before(side, stage);
   app.classList.add('is-arranged');
 
   // ------------------------------------------------------------------ panels: one at a time, Échap or a click elsewhere closes

@@ -93,7 +93,7 @@ describe('leaderboard integration with the shared shell', () => {
     expect(store.subscriberCount()).toBe(0);
   });
 
-  it('sets its controls out in the plate: toolbar, filter panels, playback, with the shared ones folded away', async () => {
+  it('sets its controls out in the plate: a column with the filter panels and the playback, the ranking beside it, the shared controls folded away', async () => {
     vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} });
     vi.stubGlobal('matchMedia', () => ({ matches: false }));
     Object.defineProperty(SVGElement.prototype, 'getTotalLength', { configurable: true, value: () => 0 });
@@ -104,10 +104,11 @@ describe('leaderboard integration with the shared shell', () => {
     try {
       await vi.waitFor(() => expect(host.querySelector('.leaderboard-view.is-arranged')).not.toBeNull());
       const inside = (id: string, selector: string) => host.querySelector(`${selector} #${id}`) !== null;
-      for (const id of ['dimension', 'metric', 'limit', 'calculation']) expect(inside(id, '.lb-bar')).toBe(true);
-      for (const id of ['filter-region', 'known-deaths']) expect(inside(id, '.lb-bar .lb-pop')).toBe(true);
-      expect(inside('minimum-attacks', '.lb-bar .lb-pop')).toBe(true);
-      expect(inside('speed', '.lb-transport')).toBe(true);
+      // Everything of the view is in the column on the left; the ranking is beside it.
+      for (const id of ['dimension', 'metric', 'limit']) expect(inside(id, '.lb-side')).toBe(true);
+      for (const id of ['filter-region', 'known-deaths', 'calculation', 'minimum-attacks']) expect(inside(id, '.lb-side .lb-pop')).toBe(true);
+      expect(inside('speed', '.lb-side .lb-transport')).toBe(true);
+      expect(host.querySelector('.lb-side .leaderboard-container')).toBeNull();
       expect(host.querySelector('.lb-stage .leaderboard-container.is-fit')).not.toBeNull();
       // What the shell holds stays, folded away, for the view to read and write.
       for (const id of ['start-year', 'end-year', 'filter-country', 'filter-group']) expect(inside(id, '.lb-legacy')).toBe(true);

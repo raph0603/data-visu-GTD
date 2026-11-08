@@ -1313,3 +1313,40 @@ vue (la barre commune n'a pas de région : le cube ne la porte pas) ; les règle
 (un seul ouvert, dans la fenêtre), la lecture (1970 à 1973, puis pause), le changement de
 catégorie (groupes), le filtre de région qui devient une pastille de la barre commune et
 s'efface.
+
+## D32. Flux et classement : les réglages dans une colonne à gauche, la visualisation prend la hauteur
+
+**Statut** : adoptée et implémentée le 2026-11-09 sur `feat/axel-carte`, à la demande
+d'Axel ; remplace la barre horizontale et la ligne de synthèse de D30 et D31.
+
+**Constat** : D30 et D31 avaient mis les réglages au-dessus de la visualisation. Sur un écran
+large mais bas, c'est la hauteur qui manque : le flux était réduit à 57 % à 1280 × 720
+(étiquettes de 6,5 px) et les lignes du classement tombaient à 16 px, loin de vraies barres.
+
+**Décision** (`flow/template.html`, `flow/layout.css`, `leaderboard/layout.ts`,
+`leaderboard/layout.css`) : les deux planches ont la même structure, une colonne de 264 px à
+gauche et la visualisation à droite, **aussi haute que la boîte** ; on perd de la largeur,
+dont ni l'une ni l'autre ne manque.
+
+- **La colonne ne défile pas** et n'a pas de bouton de repli. Pour que tout y tienne, les
+  réglages courants sont sur deux colonnes et les réglages rares s'ouvrent en panneaux à côté
+  de la colonne, par-dessus la visualisation, depuis son bord haut (un seul à la fois ; clic
+  ailleurs ou Échap les ferme).
+- **Flux** : synthèse (titre, incidents, morts avec la part de bilans connus, relations, filtres
+  actifs), cinq boutons de panneaux (Dimensions, Filtres du flux, Affichage, Catégories,
+  Repères), le bouton Radial / Horizontal et le zoom, puis les données (sélection commune,
+  source, CSV, aide). Les notes de lecture et de qualité des données passent dans « Repères ».
+  Le diagramme n'est plus limité par la hauteur : échelle de 0,92 à 1440 × 900 (étiquettes de
+  11 px, contre 9) et de 0,72 à 1280 × 720 (8,6 px, contre 6,5).
+- **Classement** : catégorie et résultats sur une ligne, indicateur ; cinq boutons de panneaux
+  (Filtres, Options, Regrouper, Repères, Données ; « Calcul » passe dans Options) ; les chiffres
+  (période affichée, incidents sélectionnés, résumé de la sélection) ; la lecture en bas de la
+  colonne. Le classement prend toute la hauteur : barres de 41 px de haut (lignes de 49 px)
+  à 1440 × 900 et de 25 px (33 px) à 1280 × 720, au lieu de 28 px et 16 px ; le graphique plafonne
+  ses lignes à 64 px dans cette boîte et grossit ses étiquettes avec elles (12 à 17 px).
+- **Mesuré** : aucun défilement de la page, de la colonne ni du classement à 1440 × 900
+  (colonne de 706 px) et à 1280 × 720 (544 px, tout y tient).
+
+**Points ouverts** : la colonne est faite pour environ 544 px de haut au minimum ; plus bas, ses
+derniers boutons sortiraient de la boîte. Le flux garde son repère de 1280 × 760 (limite
+d'échelle) ; sous environ 1100 px de large la colonne reste à 264 px.
