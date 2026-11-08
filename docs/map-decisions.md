@@ -1213,3 +1213,54 @@ barre, repris par le classement (« Iraq », 1 179 incidents en 2010) et par le 
 (« Irak — modes opératoires », 24 636 incidents) ; « France » choisie dans le classement
 devient la pastille de la barre, « Tous » la retire ; les mesures Morts et Blessés
 changent l'épaisseur des rubans du flux.
+
+## D30. Le flux dans la boîte de la planche : une barre, le diagramme centré, un seul bouton de disposition
+
+**Statut** : adoptée et implémentée le 2026-11-09 sur `feat/axel-carte` (étape 3 de la
+refonte de l'UX, après D28 et D29).
+
+**Constat** (1440 × 900, avant) : le flux était une application complète collée dans la
+planche : barre d'application, colonne de 960 px de hauteur (période, pays, régions,
+dimensions, catégories, mesure, affichage), bandeau de chiffres, cadre « Périmètre
+affiché », bandeau d'en-tête du graphique, curseur « Une structure, deux lectures » avec
+deux boutons, légende et pied de page : le diagramme commençait vers 630 px du haut et
+la page débordait de 849 px. La disposition horizontale ou radiale n'apporte rien au
+sujet ; elle coûtait deux boutons, un curseur et une zone dédiée.
+
+**Décision** (`src/modules/flow/`) :
+
+- **Mise en page** (`template.html`, `layout.css`) : une barre de réglages d'une ligne,
+  une ligne de synthèse, puis le diagramme, qui remplit tout le reste et se centre ; la
+  sélection (« Filtrer la sélection ») est une barre posée dans le diagramme ; une ligne
+  de notes (lecture, qualité des données, « Source et méthode ») termine. Mesuré : plus
+  aucun défilement (ni de la page ni de la boîte) à 1440 × 900 (diagramme de 595 px de
+  haut) et à 1280 × 720 (433 px).
+- **Ce qui part vers le shell** : la période et la comparaison (la frise du bas), les pays
+  (D29), la mesure (la barre de contexte). Les champs correspondants de l'ancien gabarit
+  sont gardés cachés (`.fl-legacy`) : le moteur les lit par leur identifiant et reste
+  inchangé. Un test (`template.test.ts`) vérifie que tout identifiant que le moteur
+  cherche existe dans le gabarit, une seule fois.
+- **Ce qui reste propre au flux**, dans trois menus sous leurs boutons : « Dimensions »
+  (point de départ, niveaux et ordre), « Filtres du flux » (région, catégories, avec leur
+  compteur et « Réinitialiser »), « Affichage » (catégories par niveau, ordre, valeurs ou
+  pourcentages) ; plus « Catégories » (la légende, qui sert aussi à survoler et
+  sélectionner), la sélection commune (« ↺ Sélection commune »), le zoom, le plein écran,
+  l'export, l'import d'un CSV et l'aide. Un seul menu s'ouvre à la fois ; clic ailleurs
+  ou Échap le ferme.
+- **Un seul bouton Radial / Horizontal** : il appuie sur le bon bouton caché du moteur
+  (qui anime le passage) et prend le nom de la disposition vers laquelle il mène. Le
+  curseur, les deux boutons et le bloc « Transformer » sont retirés de l'écran.
+- La ligne d'état du moteur n'est lue qu'à voix haute, sauf quand elle porte un avis (CSV
+  importé, échec de chargement).
+
+**Points ouverts** : le diagramme garde son repère de 1280 × 760 : à 1280 × 720 il est
+réduit à 57 % et ses étiquettes font environ 6,5 px (le plein écran rend toute la fenêtre).
+La suite logique est une géométrie qui suit la taille de la boîte (hauteur du repère et
+rayon du cercle), ce qui touche `geometry.js` et le moteur. `native.css` contient des
+règles mortes (colonne, bandeau, curseur) à retirer. La barre passe sur deux lignes
+au-dessous d'environ 1200 px de large.
+
+**Vérification** : `npm run typecheck`, `npm test` ; navigateur : bouton Radial puis
+Horizontal, les quatre menus (un seul ouvert, fermés par un clic ailleurs), sélection d'un
+nœud et son effacement, préréglage « Acteurs et tactiques », pourcentages, filtre de
+région et sa réinitialisation, pays et mesure de la barre commune.
