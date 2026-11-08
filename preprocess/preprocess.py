@@ -33,6 +33,7 @@ from gtd_source import (
     REPO_ROOT,
     UNKNOWN_GROUP,
     read_gtd,
+    read_ranking_details,
 )
 
 SCHEMA_VERSION = 1
@@ -359,6 +360,33 @@ def prepare_output(out: Path) -> None:
     out.mkdir(parents=True, exist_ok=True)
 
 
+def leaderboard(rows: pd.DataFrame, source: Path) -> dict:
+    """Full incident coverage and optional fields for the animated ranking only."""
+    details = read_ranking_details(source).reindex(rows["event_id"])
+    dimensions = {
+        "country": "country", "region": "region", "group": "group", "attackType": "attack_type",
+        "weaponType": "weapon_type", "targetType": "target_type", "province": "province",
+        "city": "city", "weaponSubtype": "weapon_subtype", "targetSubtype": "target_subtype",
+    }
+    columns = {"eventId": rows["event_id"].tolist(), "countryId": rows["iso3"].tolist(),
+               "year": [int(v) for v in rows["year"]]}
+    dictionaries = {}
+    for dim, field in dimensions.items():
+        values = (rows[field] if field in rows else details[field]).fillna("Unknown").astype(str)
+        values = values.str.replace(r"\s+", " ", regex=True).str.strip().replace("", "Unknown")
+        dictionary = sorted(set(values))
+        positions = {value: i for i, value in enumerate(dictionary)}
+        dictionaries[dim] = dictionary
+        columns[dim] = [positions[v] for v in values]
+    for name in ["killed", "wounded", "suicide", "success", "doubt"]:
+        values = rows[name] if name in rows else details[name]
+        numeric = pd.to_numeric(values, errors="coerce")
+        flag = name in ["suicide", "success", "doubt"]
+        columns[name] = [None if pd.isna(v) or not float("-inf") < float(v) < float("inf")
+                         or v < 0 or (flag and v not in (0, 1)) else number(v) for v in numeric]
+    return {"schemaVersion": SCHEMA_VERSION, "count": len(rows), "dictionaries": dictionaries, "columns": columns}
+
+
 def build(source: Path = RAW_CSV, out: Path = DEFAULT_OUT) -> None:
     prepare_output(out)
     rows = load_rows(source)
@@ -369,6 +397,7 @@ def build(source: Path = RAW_CSV, out: Path = DEFAULT_OUT) -> None:
     write_json(out / "agg" / "group_year.json", group_year(rows, axis))
     write_json(out / "top_events.json", top_events(rows))
     write_json(out / "cube.json", cube(rows, axis))
+    write_json(out / "leaderboard.json", leaderboard(rows, source))
     mapped = rows[rows["iso3"] != ""]
     by_country = dict(tuple(mapped.groupby("iso3")))
     for iso3 in sorted(drawable_iso3()):
