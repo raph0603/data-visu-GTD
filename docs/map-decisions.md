@@ -1350,3 +1350,28 @@ dont ni l'une ni l'autre ne manque.
 **Points ouverts** : la colonne est faite pour environ 544 px de haut au minimum ; plus bas, ses
 derniers boutons sortiraient de la boîte. Le flux garde son repère de 1280 × 760 (limite
 d'échelle) ; sous environ 1100 px de large la colonne reste à 264 px.
+
+## D33. Classement : jusqu'à 20 lignes sans défilement ; frise : repères d'année
+
+**Statut** : adoptée et implémentée le 2026-11-09 sur `feat/axel-carte`, à la demande d'Axel.
+
+**Classement** (`leaderboard/charts/leaderboard.ts`) : le cadre du classement garde la même
+taille quel que soit le nombre de lignes. Jusqu'à 20 catégories, tout tient sans défilement :
+ce sont les barres qui s'amincissent (lignes de 49 px pour 10 catégories à 1440 × 900, de 33 px
+à 1280 × 720, de 16 px pour 20 ; barres d'au moins 6 px, étiquettes d'au moins 10 px) et la boîte
+n'a plus de barre de défilement. Au-delà de 20 (« 50 », « Tous »), les lignes gardent 16 px et la
+boîte défile. Le sélecteur « Résultats » reste à 10, 20, 50 et « Tous ». Mesuré à 1280 × 720 : le
+cadre reste à 544 px pour 10, 20 et 50 lignes, sans défilement jusqu'à 20, avec 473 px de
+défilement pour 33 lignes.
+
+**Frise partagée** (`shell/timeline.ts`, `shell/plate.css`) : trois repères pour lire l'année.
+Une graduation par année, plus longue tous les cinq ans et tous les dix ans, sous l'histogramme
+(les années en chiffres restent aux décennies, sauf sous 760 px de haut) ; une étiquette qui suit le
+pointeur et donne l'année et sa valeur (« 2014 : 16 903 incidents », « 1993 : pas de donnée ») ;
+les deux années de la période écrites sur les bords de la fenêtre (une seule étiquette « 2003 »
+ou « 2002–2003 » quand la fenêtre est trop étroite pour deux). Elles suivent la fenêtre pendant la
+lecture.
+
+**Vérification** : `npm run typecheck`, `npm test` (228) ; navigateur : classement à 10, 20 et 50
+lignes à 1280 × 720 ; frise : survol d'une année et d'une année sans donnée, étiquettes de la
+période (2010–2017, une année).
