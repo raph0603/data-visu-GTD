@@ -28,9 +28,9 @@ const flow: VizModule = {
     const send = () => {
       if (!controller) return;
       const state = ctx.store.get();
-      const countries = state.filters.country?.length ? state.filters.country
-        : state.pinned.some(r => r.dim === 'country') ? state.pinned.filter(r => r.dim === 'country').map(r => r.id)
-        : state.focus?.dim === 'country' ? [state.focus.id] : [];
+      // The explored countries are the pinned ones (the map, the context bar and the leaderboard write them).
+      const countries = state.pinned.some(r => r.dim === 'country') ? state.pinned.filter(r => r.dim === 'country').map(r => r.id)
+        : state.focus?.dim === 'country' ? [state.focus.id] : state.filters.country?.length ? state.filters.country : [];
       const filters: Record<string, string[]> = {};
       const dimMap: Record<string, string> = { attackType:'attack', weaponType:'weapon', targetType:'target', region:'region', group:'group', suicide:'suicide' };
       for (const [shared, local] of Object.entries(dimMap)) {
@@ -45,14 +45,16 @@ const flow: VizModule = {
         const names = [...new Set(countryGroups.flatMap(g => g.values))];
         filters.country = names.length ? names : ['Pays sans correspondance GTD'];
       }
-      const applied = controller.applyShared({ period:[state.range.from, state.range.to],
+      // The thickness of the ribbons follows the shared metric; « deaths per incident » has no ribbon, the last one stays.
+      const metric = ({ incidents:'count', killed:'killed', wounded:'wounded' } as Record<string, string>)[state.metric];
+      const applied = controller.applyShared({ period:[state.range.from, state.range.to], metric,
         compare:state.compare ? [state.compare.from, state.compare.to] : null, filters,
         countryGroups:countryGroups.filter(g => g.values.length),
         warning:missing.length ? `Pays sans correspondance : ${missing.join(', ')}. Seuls les pays reconnus sont représentés.` : '' });
       if (!applied) status.textContent = 'CSV importé : exploration locale. Rétablissez le jeu intégré pour reprendre la sélection commune.';
     };
     resume.addEventListener('click', send);
-    const off = ctx.store.subscribe(s => JSON.stringify([s.range, s.compare, s.filters, s.pinned, s.focus]), send);
+    const off = ctx.store.subscribe(s => JSON.stringify([s.range, s.compare, s.metric, s.filters, s.pinned, s.focus]), send);
     const dataset = ctx.dataset.dataset.id;
     const base = `${import.meta.env.BASE_URL}data/${encodeURIComponent(dataset)}/flow/`;
     void Promise.all([

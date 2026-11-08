@@ -9,6 +9,7 @@ import { LeaderboardChart } from "./charts/leaderboard";
 import { TimelineSummaryChart } from "./charts/timeline-summary";
 import { closestFrameIndex, summarizeFrames } from "./data/timeline-summary";
 import "./leaderboard.css";
+import { countriesPatch, filtersWithCountries, sharedCountryIds } from "./shared-countries";
 
 const sessionGroups = new WeakMap<ModuleContext["store"], Map<Dimension, CategoryGroup[]>>();
 
@@ -412,16 +413,18 @@ export function mountLeaderboard(host: HTMLElement, ctx: ModuleContext): ModuleH
       function syncFromStore(): void {
         const state = ctx.store.get();
         if (syncing) { lastShared = state; return; }
-        if (lastShared && state.range === lastShared.range && state.filters === lastShared.filters && state.metric === lastShared.metric && state.ext === lastShared.ext) return;
+        if (lastShared && state.range === lastShared.range && state.filters === lastShared.filters && state.pinned === lastShared.pinned && state.metric === lastShared.metric && state.ext === lastShared.ext) return;
         lastShared = state;
         syncing = true;
         startYear.property("value", state.range.from);
         endYear.property("value", state.range.to);
         for (const { column, control } of categoryControls) {
-          const shared = state.filters[column] ?? [];
+          // Countries are the pinned ones (the map and the context bar write them); one country shows by its name.
+          const shared = column === "country" ? sharedCountryIds(state) : state.filters[column] ?? [];
+          const single = column === "country" && shared.length === 1 ? rows.find((row) => row.countryId === shared[0])?.country : undefined;
           control.selectAll("option.linked-selection").remove();
-          let value = shared[0] ?? state.ext[`leaderboard.filter-${column}`] ?? "";
-          if (shared.length > 1 || (column === "country" && shared.length)) {
+          let value = column === "country" ? single ?? "" : shared[0] ?? state.ext[`leaderboard.filter-${column}`] ?? "";
+          if (shared.length > 1 || (column === "country" && shared.length && single === undefined)) {
             value = "__shared__";
             control.append("option").attr("class", "linked-selection").attr("value", value)
               .text(`${shared.length} ${column === "country" ? "pays" : "catégories"} sélectionné${shared.length > 1 ? "s" : ""}`);
@@ -451,6 +454,9 @@ export function mountLeaderboard(host: HTMLElement, ctx: ModuleContext): ModuleH
         if (syncing) return;
         const state = ctx.store.get();
         const filters: Record<string, readonly string[]> = { ...state.filters };
+        // The countries live in pinned, not in a filter: an old « country » filter moves there.
+        delete filters.country;
+        let countryIds = sharedCountryIds(state);
         const ext = { ...state.ext, "leaderboard.metric": activeMetric, "leaderboard.sharedMetric": metricToShared[activeMetric] ?? state.metric,
           "leaderboard.dimension": String(dimensionSelect.property("value")), "leaderboard.limit": String(limit.property("value")),
           "leaderboard.aggregation": String(aggregation.property("value")), "leaderboard.minimum": String(minimumAttacks.property("value")),
@@ -460,8 +466,7 @@ export function mountLeaderboard(host: HTMLElement, ctx: ModuleContext): ModuleH
           const value = String(control.property("value"));
           if (value === "__shared__" || value === lastCategoryValues.get(column)) continue;
           if (column === "country") {
-            filters.country = value ? [...new Set(rows.filter((row) => row.country === value).map((row) => row.countryId!).filter(Boolean))] : [];
-            ext["leaderboard.filter-country"] = value;
+            countryIds = value ? [...new Set(rows.filter((row) => row.country === value).map((row) => row.countryId!).filter(Boolean))] : [];
           } else if (ctx.dataset.dimensions.some((dim) => dim.id === column)) filters[column] = value ? [value] : [];
           else ext[`leaderboard.filter-${column}`] = value;
           lastCategoryValues.set(column, value);
@@ -473,7 +478,8 @@ export function mountLeaderboard(host: HTMLElement, ctx: ModuleContext): ModuleH
         }
         syncing = true;
         ctx.store.set({ filters, ext, metric: metricToShared[activeMetric] ?? state.metric,
-          range: { from: Number(startYear.property("value")), to: Number(endYear.property("value")) } });
+          range: { from: Number(startYear.property("value")), to: Number(endYear.property("value")) },
+          ...countriesPatch(state, countryIds) });
         lastShared = ctx.store.get();
         syncing = false;
       }
@@ -511,7 +517,7 @@ export function mountLeaderboard(host: HTMLElement, ctx: ModuleContext): ModuleH
         minimumAttacks.property("value", minimum);
         const aggregationMode = String(aggregation.property("value")) as TemporalAggregation;
         publishControls();
-        const sharedFilters = ctx.store.get().filters;
+        const sharedFilters = filtersWithCountries(ctx.store.get());
         const linked = incidents.filter((incident) => Object.entries(sharedFilters).every(([dim, values]) => {
           if (!values.length) return true;
           const value = dim === "country" ? incident.values.countryId : incident.values[dim];

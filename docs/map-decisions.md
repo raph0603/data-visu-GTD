@@ -1179,3 +1179,37 @@ sont à retirer.
 **Vérification** : `npm run typecheck`, `npm test` (série annuelle et planches), navigateur
 à 1440 × 900 et 1280 × 720 : carte, ajout d'un pays, filtre, « Tout effacer », décennie,
 glisser sur la frise, lecture, bouton Sources, redirection de `#v=atlas`.
+
+## D29. Une seule désignation des pays : `pinned`, pour la carte, le flux et le classement
+
+**Statut** : adoptée et implémentée le 2026-11-09 sur `feat/axel-carte` (étape 2 de la
+refonte de l'UX, après D28).
+
+**Constat** : la carte et la barre de contexte écrivaient les pays dans `pinned` (et
+`focus`) ; le classement ne lisait et n'écrivait que le filtre `filters.country`. Choisir
+un pays sur la carte ne changeait donc pas le classement, et l'inverse non plus ; le flux,
+lui, lisait les trois. La mesure commune n'atteignait pas le flux.
+
+**Décision** :
+
+- **Les pays explorés sont les pays de `pinned`** (`focus` suit le dernier, comme dans la
+  sélection de la carte). Un filtre `country` n'est plus écrit par personne ; il n'est lu
+  que si rien n'est épinglé, pour qu'un ancien lien s'ouvre encore sur son pays, et le
+  classement le migre dans `pinned` à sa première publication.
+- **Classement** (`shared-countries.ts`, `index.ts`) : son sélecteur de pays lit `pinned`
+  (un pays : son nom ; plusieurs : « n pays sélectionnés ») et y écrit ; les incidents sont
+  filtrés par ces pays. Choisir « Tous » retire les pays de la barre commune.
+- **Flux** (`index.ts`) : les pays viennent de `pinned`, puis de `focus`, puis de l'ancien
+  filtre. La mesure commune règle l'épaisseur des rubans (incidents, morts, blessés ;
+  « morts par incident » n'a pas de rubans : la dernière mesure reste). `applyShared`
+  accepte un champ `metric` facultatif.
+
+**Points ouverts** : le classement écrit dans l'adresse tous ses réglages, même à leur
+valeur par défaut (`x.leaderboard.*`), ce qui allonge les liens ; ses filtres de province,
+ville et sous-types restent locaux.
+
+**Vérification** : `npm run typecheck`, `npm test` ; navigateur : Irak ajouté dans la
+barre, repris par le classement (« Iraq », 1 179 incidents en 2010) et par le flux
+(« Irak — modes opératoires », 24 636 incidents) ; « France » choisie dans le classement
+devient la pastille de la barre, « Tous » la retire ; les mesures Morts et Blessés
+changent l'épaisseur des rubans du flux.
