@@ -600,6 +600,13 @@
   translate: -50% 0;
 }
 
+.tl-tags {
+  position: absolute;
+  inset: 0 7px;
+  z-index: 2;
+  pointer-events: none;
+}
+
 .tl-tag {
   position: absolute;
   top: 3px;
@@ -613,12 +620,13 @@
   white-space: nowrap;
 }
 
-.tl-tag-from {
-  left: 2px;
+/* While it plays, the window moves year by year: its handles would only hide the year. */
+.timeline.is-playing .tl-range::-webkit-slider-thumb {
+  opacity: 0;
 }
 
-.tl-tag-to {
-  right: 2px;
+.timeline.is-playing .tl-range::-moz-range-thumb {
+  opacity: 0;
 }
 
 @media (max-height: 760px) {

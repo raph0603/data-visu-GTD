@@ -220,8 +220,9 @@ export function mountLeaderboard(host: HTMLElement, ctx: ModuleContext): ModuleH
       const playbackControls = animationToolbar.append("p").attr("class", "playback-controls");
       const playButton = playbackControls.append("button").attr("type", "button").attr("class", "primary-button").text("Lancer l'animation");
       const restartButton = playbackControls.append("button").attr("type", "button").text("Revenir au début");
-      const previousButton = playbackControls.append("button").attr("type", "button").text("Année précédente");
-      const nextButton = playbackControls.append("button").attr("type", "button").text("Année suivante");
+      // Short words in the column; the whole wording stays in the accessible name and the tooltip.
+      const previousButton = playbackControls.append("button").attr("type", "button").text("‹ Précédente");
+      const nextButton = playbackControls.append("button").attr("type", "button").text("Suivante ›");
       const speedField = playbackControls.append("div").attr("class", "control-inline speed-control");
       speedField.append("label").attr("for", "speed").text("Vitesse : ");
       const speed = speedField.append("input").attr("id", "speed").attr("type", "range")
@@ -531,8 +532,10 @@ export function mountLeaderboard(host: HTMLElement, ctx: ModuleContext): ModuleH
         frames = buildTimelineFrames(linked, years, filters, activeDimension, activeMetric, minimum,
           Boolean(excludeUnknown.property("checked")), aggregationMode, groupsByDimension.get(activeDimension) ?? []);
         const annual = aggregationMode === "year";
-        previousButton.text(annual ? "Année précédente" : "Période précédente");
-        nextButton.text(annual ? "Année suivante" : "Période suivante");
+        const previousName = annual ? "Année précédente" : "Période précédente";
+        const nextName = annual ? "Année suivante" : "Période suivante";
+        previousButton.attr("aria-label", previousName).attr("title", previousName);
+        nextButton.attr("aria-label", nextName).attr("title", nextName);
         helpText.text(`${temporalAggregations[aggregationMode]}. Les périodes de 5 ans et les décennies suivent les bornes calendaires et sont limitées aux dates sélectionnées. ` +
           "Les filtres se combinent avant l'agrégation. Les groupes remplacent leurs catégories individuelles. Les sommes, moyennes et taux sont recalculés sur leurs incidents renseignés ; morts + blessés nécessite les deux valeurs. Les années absentes ne sont pas remplacées par des zéros. La vitesse est exprimée par année parcourue.");
         const limitValue = limit.property("value") === "all" ? Infinity : Number(limit.property("value"));
