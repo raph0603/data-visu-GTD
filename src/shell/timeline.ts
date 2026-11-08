@@ -104,10 +104,6 @@ export function createTimeline(parent: HTMLElement, ctx: ModuleContext): Timelin
     bars.append(node);
   }
   const windowBox = el(doc, 'div', 'tl-window');
-  // The years written on the edges of the window: both when it is wide enough, else one tag.
-  const tagFrom = el(doc, 'span', 'tl-tag tl-tag-from');
-  const tagTo = el(doc, 'span', 'tl-tag tl-tag-to');
-  windowBox.append(tagFrom, tagTo);
   bars.append(windowBox);
   // The year under the pointer, with its value.
   const hover = el(doc, 'div', 'tl-hover');
@@ -131,6 +127,14 @@ export function createTimeline(parent: HTMLElement, ctx: ModuleContext): Timelin
     histo.append(input);
     return input;
   });
+  // The years written on the edges of the window (both when it is wide enough, else one tag), in a layer
+  // above the handles, which would hide them when the window is a single year.
+  const tags = el(doc, 'div', 'tl-tags');
+  tags.setAttribute('aria-hidden', 'true');
+  const tagFrom = el(doc, 'span', 'tl-tag');
+  const tagTo = el(doc, 'span', 'tl-tag');
+  tags.append(tagFrom, tagTo);
+  histo.append(tags);
   const axis = el(doc, 'div', 'tl-axis');
   axis.setAttribute('aria-hidden', 'true');
   for (let year = Math.ceil((first + 1) / 10) * 10; year < last - 3; year += 10) axis.append(axisLabel(year));
@@ -361,11 +365,23 @@ export function createTimeline(parent: HTMLElement, ctx: ModuleContext): Timelin
   }
 
   function drawTags(range: YearRange): void {
-    const widthPx = (rangeLength(range) / span) * bars.clientWidth;
-    const single = range.from === range.to || widthPx < 84;
-    tagFrom.textContent = single ? formatYears(range) : String(range.from);
-    tagTo.textContent = String(range.to);
+    const total = bars.clientWidth;
+    const x = (year: number) => ((year - first) / span) * total;
+    const single = range.from === range.to || (rangeLength(range) / span) * total < 84;
     tagTo.hidden = single;
+    tagTo.textContent = String(range.to);
+    tagFrom.textContent = single ? formatYears(range) : String(range.from);
+    if (single) {
+      // One tag, centred on the window and kept inside the histogram.
+      const half = tagFrom.offsetWidth / 2;
+      tagFrom.style.left = `${Math.min(Math.max((x(range.from) + x(range.to + 1)) / 2, half), total - half)}px`;
+      tagFrom.style.translate = '-50% 0';
+    } else {
+      tagFrom.style.left = `${x(range.from)}px`;
+      tagFrom.style.translate = '0 0';
+      tagTo.style.left = `${x(range.to + 1)}px`;
+      tagTo.style.translate = '-100% 0';
+    }
   }
 
   function recompute(): void {

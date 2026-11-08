@@ -215,65 +215,79 @@
 
 .leaderboard-view.is-arranged .lb-transport .animation-toolbar {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 6px;
+  min-width: 0;
   padding: 0;
   border: 0;
 }
 
+/* minmax(0, ...): a row's own width never widens the columns, whatever it holds. */
 .leaderboard-view.is-arranged .lb-transport .playback-controls {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 6px;
+  min-width: 0;
   margin: 0;
 }
 
 .leaderboard-view.is-arranged .lb-transport .playback-controls button {
+  min-width: 0;
   min-height: 30px;
   padding: 0 6px;
+  overflow: hidden;
   font-size: 12.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
+/* « Lancer l'animation » and the speed take the whole width; the three other buttons share the two columns. */
 .leaderboard-view.is-arranged .lb-transport .playback-controls > button:first-child,
 .leaderboard-view.is-arranged .lb-transport .speed-control {
   grid-column: 1 / -1;
 }
 
 .leaderboard-view.is-arranged .lb-transport .speed-control {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr);
   align-items: center;
-  gap: 4px 8px;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+  margin: 0;
 }
 
+/* The word « Vitesse » is for screen readers: the slider and its reading say it. */
+.leaderboard-view.is-arranged .lb-transport .speed-control label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* A slider of a fixed width, whatever the room; the reading is at the right end, on one line, whatever its value. */
 .leaderboard-view.is-arranged .lb-transport .speed-control input {
-  flex: 1;
-  min-width: 80px;
+  grid-column: 1;
+  width: 120px;
+  min-width: 120px;
   margin: 0;
 }
 
 .leaderboard-view.is-arranged .lb-transport .speed-control output {
+  grid-column: 2;
   min-width: 0;
-  font-size: 12px;
-}
-
-.leaderboard-view.is-arranged .lb-transport .control-inline {
-  margin: 0;
-}
-
-/* The displayed period: its label and its list on one line. */
-.leaderboard-view.is-arranged .lb-transport > .animation-toolbar > .control-inline {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.leaderboard-view.is-arranged .lb-transport > .animation-toolbar > .control-inline label {
-  font-size: 12px;
+  overflow: hidden;
+  font-size: 11.5px;
+  text-align: right;
+  text-overflow: clip;
   white-space: nowrap;
 }
 
-.leaderboard-view.is-arranged .lb-transport > .animation-toolbar > .control-inline select {
-  flex: 1;
+/* The displayed period is on the time zone and the ranking's big year: its list stays in the page, unseen, for the view's own use. */
+.leaderboard-view.is-arranged .lb-transport > .animation-toolbar > .control-inline {
+  display: none;
 }
 
 /* Read out by screen readers; the buttons already say what is playing. */
