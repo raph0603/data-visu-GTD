@@ -1264,3 +1264,52 @@ au-dessous d'environ 1200 px de large.
 Horizontal, les quatre menus (un seul ouvert, fermés par un clic ailleurs), sélection d'un
 nœud et son effacement, préréglage « Acteurs et tactiques », pourcentages, filtre de
 région et sa réinitialisation, pays et mesure de la barre commune.
+
+## D31. Le classement dans la boîte de la planche : barre, synthèse, classement qui remplit, lecture dessous
+
+**Statut** : adoptée et implémentée le 2026-11-09 sur `feat/axel-carte` (étape 4 de la
+refonte de l'UX, après D28 à D30).
+
+**Constat** (1440 × 900, avant) : le classement débordait de 1 146 px : une colonne de
+filtres (période, localisation, acteurs, caractéristiques), un titre, trois cartes de
+chiffres, une carte de réglages (catégorie, indicateur, résultats, minimum, agrégation,
+calcul, Unknown, regroupement), une barre d'animation, puis le graphique tout en bas ; le
+classement lui-même était sous la ligne de flottaison.
+
+**Décision** (`src/modules/leaderboard/`) :
+
+- **Mise en page** (`layout.ts`, `layout.css`) : le module construit son DOM comme avant ;
+  `arrangeLayout` déplace ensuite les nœuds, sans les recréer, de sorte que chaque
+  contrôle garde son identifiant et ses écouteurs. Quatre blocs : une barre (catégorie,
+  indicateur, résultats, calcul, et cinq boutons de panneaux), une synthèse d'une ligne
+  (période affichée, incidents sélectionnés, catégories affichées, puis le résumé de la
+  sélection), le classement qui remplit tout le reste, la lecture dessous. Mesuré : plus
+  aucun défilement de la page à 1440 × 900 (classement de 574 px de haut, lignes de 36 px) et
+  à 1280 × 720 (374 px, lignes de 16 px, 3 px de défilement dans le graphique).
+- **Cinq panneaux** sous leurs boutons, un seul ouvert à la fois (clic ailleurs ou Échap le
+  ferme) : « Filtres » (région, province, sous-types d'arme et de cible, réussite, doute,
+  bilans renseignés, réinitialisation), « Options » (minimum d'incidents, agrégation,
+  Unknown), « Regrouper » (le regroupement de catégories), « Repères » (les notes de
+  lecture et de méthode) et « Données » (l'aperçu des dix premiers incidents).
+- **Ce que le shell tient déjà** reste dans le gabarit, replié (`.lb-legacy`) : période,
+  pays, organisation, types d'attaque, de cible et d'arme, attentat-suicide. La vue les
+  lit et les écrit comme avant ; un test vérifie qu'ils sont bien là.
+- **Graphique** (`charts/leaderboard.ts`) : dans une boîte à hauteur propre (classe
+  `is-fit`), les lignes passent de 38 px à ce qui reste, jusqu'à 16 px au minimum (puis la
+  boîte défile), et la courbe de synthèse se pose sous les lignes (collante) au lieu de les
+  recouvrir. Hors de ce mode, le graphique est inchangé.
+- **Lecture** : l'animation propre au classement (qui parcourt les années de la période)
+  remplace le bouton « Lire » de la zone temps, masqué sur cette planche, ainsi que la
+  touche Espace du shell : deux lectures de sens différents sur le même écran prêtaient à
+  confusion. La période se règle toujours sur la frise.
+
+**Points ouverts** : le classement écrit toujours dans l'adresse tous ses réglages, même par
+défaut (`x.leaderboard.*`) ; la barre passe sur deux lignes sous environ 1300 px de large ;
+les libellés des boutons de lecture sont longs ; le filtre « Région » n'existe que dans la
+vue (la barre commune n'a pas de région : le cube ne la porte pas) ; les règles de
+`leaderboard.css` de l'ancienne colonne sont à retirer.
+
+**Vérification** : `npm run typecheck`, `npm test` (228) ; navigateur : les cinq panneaux
+(un seul ouvert, dans la fenêtre), la lecture (1970 à 1973, puis pause), le changement de
+catégorie (groupes), le filtre de région qui devient une pastille de la barre commune et
+s'efface.

@@ -229,6 +229,8 @@ async function boot(root: HTMLElement): Promise<void> {
     unmount();
     const mine = token;
     mounted = view;
+    // The leaderboard plays its own ranking through the period: its animation replaces the time zone's play.
+    timeSlot.classList.toggle('has-own-play', view === 'leaderboard');
     frame(view);
     updateFolios();
     turn(planche);
@@ -289,7 +291,7 @@ async function boot(root: HTMLElement): Promise<void> {
 
   // Space plays the time zone from anywhere on a plate, except while typing or on a control that uses it.
   doc.addEventListener('keydown', (event) => {
-    if (event.key !== ' ' || event.ctrlKey || event.metaKey || event.altKey || page !== 'planche') return;
+    if (event.key !== ' ' || event.ctrlKey || event.metaKey || event.altKey || page !== 'planche' || timeSlot.classList.contains('has-own-play')) return;
     const target = event.target as HTMLElement | null;
     if (target === null || (target !== doc.body && target.tagName !== 'CANVAS')) return;
     event.preventDefault();

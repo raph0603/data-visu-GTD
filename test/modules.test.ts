@@ -93,6 +93,31 @@ describe('leaderboard integration with the shared shell', () => {
     expect(store.subscriberCount()).toBe(0);
   });
 
+  it('sets its controls out in the plate: toolbar, filter panels, playback, with the shared ones folded away', async () => {
+    vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} });
+    vi.stubGlobal('matchMedia', () => ({ matches: false }));
+    Object.defineProperty(SVGElement.prototype, 'getTotalLength', { configurable: true, value: () => 0 });
+    const store = createStore<AppState>(defaultState(rankingMeta, 'leaderboard'), { sanitize: (s) => sanitizeState(s, rankingMeta) });
+    const host = document.createElement('div'); document.body.append(host);
+    const ctx: ModuleContext = { store, dataset: rankingMeta, palette, data: { ...offline, leaderboard: async () => rankingFile() } };
+    const handle = await MODULES.leaderboard.mount(host, ctx);
+    try {
+      await vi.waitFor(() => expect(host.querySelector('.leaderboard-view.is-arranged')).not.toBeNull());
+      const inside = (id: string, selector: string) => host.querySelector(`${selector} #${id}`) !== null;
+      for (const id of ['dimension', 'metric', 'limit', 'calculation']) expect(inside(id, '.lb-bar')).toBe(true);
+      for (const id of ['filter-region', 'known-deaths']) expect(inside(id, '.lb-bar .lb-pop')).toBe(true);
+      expect(inside('minimum-attacks', '.lb-bar .lb-pop')).toBe(true);
+      expect(inside('speed', '.lb-transport')).toBe(true);
+      expect(host.querySelector('.lb-stage .leaderboard-container.is-fit')).not.toBeNull();
+      // What the shell holds stays, folded away, for the view to read and write.
+      for (const id of ['start-year', 'end-year', 'filter-country', 'filter-group']) expect(inside(id, '.lb-legacy')).toBe(true);
+    } finally {
+      handle.destroy(); host.remove(); vi.unstubAllGlobals();
+      delete (SVGElement.prototype as unknown as Record<string, unknown>).getTotalLength;
+    }
+    expect(store.subscriberCount()).toBe(0);
+  });
+
   it('still opens an old link that filters on a country, and moves it to the pinned countries', async () => {
     vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} });
     vi.stubGlobal('matchMedia', () => ({ matches: false }));

@@ -333,6 +333,14 @@
   background: #000;
 }
 
+.has-own-play .tl-play {
+  display: none;
+}
+
+.has-own-play .timeline {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .tl-main {
   min-width: 0;
 }
