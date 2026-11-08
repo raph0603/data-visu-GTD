@@ -1,0 +1,6 @@
+.gtd-flow { width: 100%; }
+.gtd-flow-tools { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12px; margin-bottom:16px; }
+.gtd-flow-tools p { margin:0; color:var(--secondary); font-size:12px; max-width:75ch; }
+.gtd-flow-tools button { font:inherit; font-size:12px; padding:8px 12px; background:var(--paper); color:var(--ink); border:1px solid var(--rule); border-radius:2px; cursor:pointer; }
+.gtd-flow-tools button:hover { background:var(--wash); }
+.gtd-flow-tools button:focus-visible { outline:2px solid var(--focus); outline-offset:3px; }
