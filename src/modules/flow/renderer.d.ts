@@ -3,6 +3,8 @@ import type { PaletteApi } from '../../core/palette';
 export interface FlowSelection {
   period: number[];
   compare: number[] | null;
+  /** Thickness of the ribbons: count, killed or wounded; unchanged when absent. */
+  metric?: string;
   filters: Record<string, string[]>;
   countryGroups: Array<{ label: string; values: string[] }>;
   warning: string;

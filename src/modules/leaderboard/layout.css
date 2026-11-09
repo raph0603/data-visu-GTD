@@ -1,0 +1,333 @@
+/*
+ * The leaderboard in the plate's box (D31, D32): a narrow column on the left with every setting of
+ * the view, none of it scrolling, and the ranking beside it, as tall as the box. layout.ts moves the
+ * controls into these places; leaderboard.css styles them, so this file comes after it and wins by
+ * its specificity. The settings used less often open as panels beside the column.
+ */
+.leaderboard-view.is-arranged {
+  display: grid;
+  grid-template-columns: 264px minmax(0, 1fr);
+  height: 100%;
+  min-height: 0;
+  background: var(--paper, #fff);
+}
+
+/* ------------------------------------------------------------------ the column */
+
+.leaderboard-view.is-arranged .lb-side {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+  padding: 12px 14px;
+  border-right: 1px solid var(--rule, #d6d5cf);
+  background: var(--wash, #f6f6f3);
+  font-size: 12.5px;
+}
+
+.leaderboard-view.is-arranged .lb-block {
+  display: grid;
+  gap: 8px;
+}
+
+.leaderboard-view.is-arranged .lb-pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.leaderboard-view.is-arranged .lb-side .control-field {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  margin: 0;
+}
+
+.leaderboard-view.is-arranged .lb-side .control-field label {
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted, #5f5e5a);
+}
+
+.leaderboard-view.is-arranged .lb-side select,
+.leaderboard-view.is-arranged .lb-btn {
+  width: 100%;
+  min-width: 0;
+  min-height: 32px;
+  padding: 0 8px;
+  border: 1px solid var(--strong-line, #c9c8c1);
+  border-radius: 2px;
+  background: var(--paper, #fff);
+  color: var(--ink, #1d1d1b);
+  font: inherit;
+  font-size: 12.5px;
+}
+
+.leaderboard-view.is-arranged .lb-btn {
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.leaderboard-view.is-arranged .lb-btn:hover,
+.leaderboard-view.is-arranged .lb-btn.is-open {
+  border-color: var(--ink, #1d1d1b);
+}
+
+.leaderboard-view.is-arranged .lb-btn.is-open {
+  background: var(--ink, #1d1d1b);
+  color: var(--paper, #fff);
+}
+
+.leaderboard-view.is-arranged .lb-panels {
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+
+.leaderboard-view.is-arranged .lb-panels .lb-btn {
+  padding: 0 4px;
+}
+
+/* The panels open beside the column, over the ranking, from its top edge. */
+.leaderboard-view.is-arranged .lb-popwrap {
+  position: static;
+  display: contents;
+}
+
+.leaderboard-view.is-arranged .lb-pop {
+  position: absolute;
+  top: 0;
+  left: calc(100% + 8px);
+  z-index: 40;
+  display: grid;
+  gap: 10px;
+  width: 340px;
+  max-width: calc(100vw - 300px);
+  max-height: 100%;
+  padding: 14px;
+  overflow: auto;
+  border: 1px solid var(--ink, #1d1d1b);
+  border-radius: 2px;
+  background: var(--paper, #fff);
+}
+
+.leaderboard-view.is-arranged .lb-pop-wide {
+  width: min(720px, calc(100vw - 300px));
+}
+
+.leaderboard-view.is-arranged .lb-pop-note {
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted, #5f5e5a);
+}
+
+.leaderboard-view.is-arranged .lb-pop .control-field {
+  display: grid;
+  gap: 4px;
+}
+
+.leaderboard-view.is-arranged .lb-pop .category-groups-panel {
+  padding: 0;
+  border: 0;
+}
+
+.leaderboard-view.is-arranged .lb-pop .category-groups-panel > summary {
+  display: none;
+}
+
+.leaderboard-view.is-arranged .lb-pop .source-notes {
+  padding: 0;
+}
+
+.leaderboard-view.is-arranged .lb-pop .preview-section {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.leaderboard-view.is-arranged .lb-pop .data-preview {
+  max-height: 50vh;
+  overflow: auto;
+}
+
+/* ------------------------------------------------------------------ figures */
+
+.leaderboard-view.is-arranged .lb-summary {
+  gap: 4px;
+  padding-top: 10px;
+  border-top: 1px solid var(--rule, #d6d5cf);
+}
+
+.leaderboard-view.is-arranged .lb-summary .kpis {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 2px;
+  margin: 0;
+}
+
+.leaderboard-view.is-arranged .lb-summary .kpi {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: baseline;
+  gap: 6px;
+  padding: 0;
+  border: 0;
+  white-space: nowrap;
+}
+
+.leaderboard-view.is-arranged .lb-summary .kpi strong,
+.leaderboard-view.is-arranged .lb-summary .kpi strong.period-value {
+  order: 1;
+  font-size: 16px;
+  font-weight: 650;
+  line-height: inherit;
+  letter-spacing: 0;
+}
+
+.leaderboard-view.is-arranged .lb-summary .kpi-label {
+  order: 2;
+  display: inline;
+  margin: 0;
+  font-size: 12px;
+}
+
+/* The count of categories is in the summary line below. */
+.leaderboard-view.is-arranged .lb-summary .kpi:nth-child(3) {
+  display: none;
+}
+
+.leaderboard-view.is-arranged .lb-summary .selection-summary {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  font-size: 11.5px;
+  line-height: 1.4;
+}
+
+/* ------------------------------------------------------------------ playback */
+
+.leaderboard-view.is-arranged .lb-transport {
+  margin-top: auto;
+  padding-top: 10px;
+  border-top: 1px solid var(--ink, #1d1d1b);
+}
+
+.leaderboard-view.is-arranged .lb-transport .animation-toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 6px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+}
+
+/* minmax(0, ...): a row's own width never widens the columns, whatever it holds. */
+.leaderboard-view.is-arranged .lb-transport .playback-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 6px;
+  min-width: 0;
+  margin: 0;
+}
+
+.leaderboard-view.is-arranged .lb-transport .playback-controls button {
+  min-width: 0;
+  min-height: 30px;
+  padding: 0 6px;
+  overflow: hidden;
+  font-size: 12.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* « Lancer l'animation » and the speed take the whole width; the three other buttons share the two columns. */
+.leaderboard-view.is-arranged .lb-transport .playback-controls > button:first-child,
+.leaderboard-view.is-arranged .lb-transport .speed-control {
+  grid-column: 1 / -1;
+}
+
+.leaderboard-view.is-arranged .lb-transport .speed-control {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+}
+
+/* The word « Vitesse » is for screen readers: the slider and its reading say it. */
+.leaderboard-view.is-arranged .lb-transport .speed-control label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* A slider of a fixed width, whatever the room; the reading is at the right end, on one line, whatever its value. */
+.leaderboard-view.is-arranged .lb-transport .speed-control input {
+  grid-column: 1;
+  width: 120px;
+  min-width: 120px;
+  margin: 0;
+}
+
+.leaderboard-view.is-arranged .lb-transport .speed-control output {
+  grid-column: 2;
+  min-width: 0;
+  overflow: hidden;
+  font-size: 11.5px;
+  text-align: right;
+  text-overflow: clip;
+  white-space: nowrap;
+}
+
+/* The displayed period is on the time zone and the ranking's big year: its list stays in the page, unseen, for the view's own use. */
+.leaderboard-view.is-arranged .lb-transport > .animation-toolbar > .control-inline {
+  display: none;
+}
+
+/* Read out by screen readers; the buttons already say what is playing. */
+.leaderboard-view.is-arranged .lb-transport .playback-status {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* ------------------------------------------------------------------ the ranking, as tall as the box */
+
+.leaderboard-view.is-arranged .lb-stage {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.leaderboard-view.is-arranged .lb-stage .leaderboard-visualization {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.leaderboard-view.is-arranged .lb-stage .leaderboard-container {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+/* The summary curve sits under the rows, and stays in view when many rows scroll. */
+.leaderboard-view.is-arranged .lb-stage .timeline-summary-panel {
+  position: sticky;
+  bottom: 0;
+  left: auto;
+  right: auto;
+  margin: 0 calc(var(--plot-right, 88px) - 12px) 0 calc(var(--plot-left, 128px) - 12px);
+  background: var(--paper, #fff);
+}

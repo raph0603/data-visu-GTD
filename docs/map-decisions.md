@@ -987,11 +987,391 @@ Retour du navigateur.
 Retour planche 2 → planche 1 → page de garde, pas de défilement horizontal.
 Captures dans `.impeccable/review/`.
 
+## D24. Carte de chaleur, zoom sémantique sur la sélection, carte pleine largeur
 
-## D24 — Classement animé dans la planche 4 (2 novembre 2026)
+**Statut** : adoptée et implémentée le 2026-11-02 sur `feat/Alban_pays`, à la
+demande d'Alban ; remplace les hexagones de D20 et le calque « Pays » de D19.
+
+**Décision** :
+
+- **Carte de chaleur** (`heat.ts`) à la place des hexagones, à la manière de
+  Snap Map : le poids de la mesure (incidents, morts ou blessés) est sommé sur
+  une grille d'écran de 3 px, flouté par une gaussienne (trois flous en boîte,
+  rayon de 15 px à l'écran), puis coloré du bleu au rouge, l'opacité montant
+  avec la densité. Les densités sous 1,5 incident isolé restent transparentes.
+  Échelle logarithmique, relative à la vue. En zoomant, les points (un par
+  incident) prennent le relais comme avant. L'infobulle somme les incidents
+  dans le rayon du flou.
+- **Un seul calque** : le sélecteur « Attentats / Pays » est retiré ; la
+  sélection des pays se fait sur la carte des attentats elle-même (clic).
+- **Zoom sémantique sur la sélection** (`cards.ts`, remplacé par D25) : chaque changement de la
+  sélection cadre les pays choisis dans les 58 % gauches de la vue ; chaque pays
+  porte une fiche reliée par un filet, rangée en colonne à droite de la
+  sélection. Le contenu suit la taille du pays à l'écran : nom, incidents et
+  morts (niveau 1) ; blessés, attentats-suicides et part des morts qu'ils
+  causent, trois premières organisations (niveau 2, dès 90 px) ; types
+  d'attaque, armes et cibles en barres (niveau 3, dès 230 px). Une fiche qui ne
+  trouve pas de place descend d'un niveau. `Breakdown` porte désormais les
+  totaux des attentats-suicides.
+- **Carte pleine largeur** : le panneau latéral est replié par défaut
+  (`x.map.panel=open` pour l'ouvrir) et s'ouvre seul pour la fiche d'un
+  incident ; au niveau monde, le globe remplit la largeur (pôles coupés) ; les
+  contrôles tiennent sur une ligne en haut à droite, avec « Tout
+  désélectionner » dès qu'un pays est choisi.
+
+**Points ouverts** : la rampe de chaleur, multicolore et rouge au sommet,
+s'écarte de la rampe à une teinte du projet et de l'anti-référence « rouge
+sang » de `docs/PRODUCT.md` ; elle a été choisie pour sa lecture immédiate. La
+tâche T5 de `src/core/tasks.ts` cite encore « hexbins » (core est figé).
+
+**Vérification** : `npm run typecheck`, `npm test` ; navigateur à 1440 × 900 :
+monde, Irak + Syrie, Nigeria zoomé, « Tout désélectionner », panneau replié et
+ouvert, fiche d'incident.
+
+## D25. Zoom sémantique : la représentation change sur les pays eux-mêmes
+
+**Statut** : adoptée et implémentée le 2026-11-02 sur `feat/Alban_pays`, à la
+demande d'Alban ; remplace les fiches texte de D24 (`cards.ts` supprimé).
+
+**Demande** : en zoomant sur un pays ou en le sélectionnant, la vue doit
+changer de mode de représentation, en continuité avec la précédente, et faire
+apparaître de nouvelles informations sur les pays, pas sous forme de texte ou
+de tableau. La carte doit occuper au moins la moitié de la hauteur de l'écran.
+
+**Décision** : trois lectures le long du zoom (`globe.ts`, `organizations.ts`,
+`heat.ts`), chacune répondant à une question, avec les mêmes couleurs d'un
+palier à l'autre :
+
+1. **Monde, « où ? »** : la carte de chaleur de D24.
+2. **Région ou pays, « qui ? »** (moins de 7 km par pixel, ou 12 km par pixel
+   avec une sélection, ce qui est atteint dès qu'on sélectionne un pays) : la
+   chaleur se colore par **organisation dominante** (`ClassField` : une densité
+   floutée par organisation, chaque pixel prend la couleur de celle qui domine,
+   l'opacité suit la densité). Les six organisations les plus actives des pays
+   sélectionnés (ou des pays en vue) prennent les couleurs Okabe–Ito ; les
+   autres sont en gris, les auteurs inconnus en gris clair. Avec une sélection,
+   seuls les pays sélectionnés portent des territoires. Sur chaque pays, des
+   **bulles** placées au centre des incidents de chaque organisation : aire =
+   incidents en vue, arc noir = part d'attentats-suicides. Survol : incidents,
+   morts, suicides, armes ; clic : filtre sur l'organisation.
+3. **Attentat, « comment ? »** (moins de 1 500 incidents en vue) : un symbole
+   par attentat, de la couleur de son organisation (ou de son type d'attaque),
+   de la **forme de son arme** (rond : armes à feu, triangle : explosifs,
+   losange : incendiaire, carré : arme blanche, croix : autre), de la taille de
+   ses morts, cerclé de noir pour un attentat-suicide. Les territoires restent
+   en fond, atténués.
+
+Les pays sélectionnés sont cernés à l'encre et nommés sur la carte (la couleur
+d'identité reste dans le panneau). La légende garde les clés et replie leur
+mode de lecture sous « Comment lire ».
+
+**Taille** : la scène fait `max(560px, 72vh)` de haut ; la frise suit en
+dessous (la page défile un peu). Sélection cadrée au centre, à 80 % de la vue.
+
+**Vérification** : `npm run typecheck`, `npm test` (157), `npm run build` ;
+navigateur : Nigeria sélectionné (Boko Haram au nord-est, extrémistes peuls
+au centre, MEND dans le delta), zoom jusqu'aux symboles, infobulle d'une bulle.
+
+
+## D26. Navigation clavier d'un attentat à l'autre, piles d'attentats, marque de sélection
+
+**Statut** : adoptée et implémentée le 2026-11-02 sur `feat/Alban_pays`, à la
+demande d'Alban.
+
+**Demande** : plusieurs attentats ont les mêmes coordonnées (7 520 au centre de
+Bagdad) ; même au zoom maximum, ils sont superposés et le pointeur ne peut pas
+choisir. Les flèches doivent passer d'un attentat à l'autre.
+
+**Décision** (`neighbour.ts`, `globe.ts`) :
+
+- **Les flèches ne tournent plus le globe** (le glisser reste) : elles ouvrent
+  l'attentat voisin. Sans attentat ouvert, la première flèche ouvre celui qui
+  est le plus proche du centre de la vue. Hors du zoom des attentats, un
+  message l'indique.
+- **Voisin** : parmi les attentats **dans la vue** (le placement garde une marge
+  de 24 px, écartée ici), le plus proche dans le quart de vue (cône de 90°) que
+  désigne la flèche ; rien dans le cône : la sélection ne bouge pas.
+- **Piles** : des attentats à moins de 2 px (`PILE_PX`) ne se distinguent pas
+  par direction. Ils sont parcourus par ordre chronologique (l'identifiant GTD
+  commence par la date), droite et bas vers le plus récent, gauche et haut vers
+  le plus ancien ; on quitte la pile une fois son bout atteint, et en entrant
+  dans une pile on tombe sur le bout d'où l'on vient. **Maj + flèche** sort de la
+  pile tout de suite. Un message dit « n sur N au même endroit ».
+- **Caméra** : elle ne bouge que si l'attentat arrive à moins de 18 % du bord
+  (140 × 90 px au plus), et seulement de la distance qui le ramène. `targetKey`
+  est posé avant la sélection pour que `syncCamera` ne vole pas jusqu'à
+  l'attentat en zoom profond, comme pour un clic.
+- **Marque de sélection** : l'anneau est remplacé par quatre coins de viseur.
+  L'anneau noir signifie déjà « attentat-suicide » (et l'anneau de survol du
+  panneau garde sa forme) ; les coins ne servent à rien d'autre et ne
+  portent pas de couleur, qui est celle de l'organisation. Sur une pile rang et
+  taille (« 2/9 ») sont écrits au-dessus.
+
+**Points ouverts** : une pile de plusieurs milliers (Bagdad, toute la période)
+se parcourt une touche à la fois ; la frise réduit la période. La touche doit
+avoir le focus : la carte l'a après un clic dessus, pas après un lien profond.
+
+**Vérification** : `npm run typecheck`, `npm test` (168, dont 11 pour
+`neighbour.ts`) ; navigateur : Irak, pile de 9 attentats à Bagdad parcourue de
+1/9 à 9/9 puis quittée, flèches vers un attentat isolé, recentrage au bord.
+
+
+## D27 — Classement animé dans la planche 4 (2 novembre 2026)
 
 Le leaderboard remplace son squelette dans le shell de l’atlas et occupe la quatrième position. La planche des incidents passe en position 2. Les styles restent limités au module ; la typographie, les filets, les fonds et les couleurs viennent du système commun.
 
 Un chargement paresseux supplémentaire, `DataApi.leaderboard()`, conserve les filtres de province, ville, sous-types, réussite et doute sans charger le CSV dans le navigateur ni alourdir les fichiers de la carte. `preprocess/preprocess.py` écrit `leaderboard.json` sous forme de colonnes et de dictionnaires (13,3 Mo sur l’export 2017). Le nouveau contrat est isolé dans `core/leaderboard-data.ts` ; les contrats existants restent inchangés. Les noms source demeurent dans l’adaptateur Python.
 
 Les filtres de pays partagés utilisent les codes ISO, tandis que les libellés historiques restent distincts dans le classement. Les incidents sans coordonnées ou pays représentable sont conservés. Les années absentes, zéros et valeurs inconnues gardent leur sens ; sommes conjointes et moyennes sont recalculées à partir des incidents filtrés. Les abonnements, observateurs et animations sont libérés au démontage, y compris lorsqu’un chargement se termine après la navigation.
+
+## D28. Une planche tient dans la fenêtre : barre de contexte, zone temps, trois planches
+
+**Statut** : adoptée et implémentée le 2026-11-09 sur `feat/axel-carte`, à la demande
+d'Axel (première étape de la refonte de l'UX ; les planches Comment et Qui seront
+remises en page ensuite).
+
+**Demande** : le moins de défilement possible ; les contrôles de période, de mesure,
+de pays et de filtres communs à toutes les planches, au même endroit ; la visualisation
+ancrée au centre ; la planche 2 (atlas) retirée.
+
+**Mesure avant** (1440 × 900) : la page débordait de 312 px (carte), 849 px (flux) et
+1 146 px (classement).
+
+**Décision** (`src/shell/`) :
+
+- **Pas de défilement de page sur une planche** (`plate.css`) : le shell est une grille
+  de la hauteur de la fenêtre : bandeau (52 px), barre de contexte, vue, zone temps. Le
+  défilement n'existe que dans une vue qui n'est pas encore remise en page (flux,
+  classement : à l'intérieur de leur boîte), dans les panneaux latéraux et les menus. La
+  page de garde garde sa longue page. Mesuré : 0 px de débordement sur les trois planches
+  à 1440 × 900 et à 1280 × 720 ; la carte ne défile pas du tout (scène de 708 et 546 px).
+- **Trois planches** : Où ? (carte), Comment ? (flux), Qui ? (classement). Le module
+  `atlas` reste enregistré (le cœur est figé) mais n'a plus de planche : `#v=atlas`
+  renvoie à la carte, dont le zoom jusqu'à l'attentat est la lecture incident par
+  incident. Les tâches de l'atlas sont à réaffecter à la carte dans `core/tasks.ts`
+  (revue à deux personnes).
+- **Barre de contexte** (`context.ts`), sous le bandeau, pour toutes les planches : la
+  période (lecture seule, la frise la règle), la mesure, les pays (jusqu'à 4, avec
+  recherche), les filtres (menu : organisation, type d'attaque, cible, arme,
+  attentats-suicides ; les trois premières pastilles se voient dans la barre), « Tout
+  effacer » (pays, filtres, comparaison, attentat ouvert, période entière ; la mesure
+  reste) et « Partager ». Elle lit et écrit le store seul.
+- **Zone temps** (`timeline.ts`, `series.ts`) en bas, pour toutes les planches : la
+  frise histogramme de la mesure par année pour les pays et filtres du store (1993
+  hachuré, ruptures de collecte en pointillés), choix de la période (glisser, déplacer la
+  fenêtre, une année, une décennie, clavier), lecture (Espace) et période de comparaison.
+  Réécrite sur `core/` et le cube, et non déplacée : l'ancienne frise de la carte
+  dépendait de son modèle, et un module ne peut pas être importé par le shell. La série
+  ne dépend pas de la période : déplacer la fenêtre ne la recalcule pas.
+- **Carte** : sa barre du bas, son panneau de filtres et son bouton « Partager » sont
+  supprimés (`timebar.ts`). Restent dans sa barre d'outils « Par habitant » (D21) et
+  l'aide des raccourcis. La vue remplit sa boîte (`height: 100%`).
+- **Sources** : le colophon quitte la planche ; le bouton « Sources » du bandeau ouvre la
+  même citation et la licence (conditions d'utilisation de la GTD, section 4.a).
+
+**Points ouverts** : le flux et le classement gardent leurs propres contrôles de
+période et de filtres, redondants avec la barre commune, jusqu'à leur remise en page
+(étapes suivantes) ; les pays restent désignés par `pinned` (carte, flux) et par
+`filters.country` (classement) : à unifier ; la mesure par habitant n'entre pas dans la
+frise ; les règles CSS de l'ancienne barre dans `map.css` (`.cv-timebar` et voisines)
+sont à retirer.
+
+**Vérification** : `npm run typecheck`, `npm test` (série annuelle et planches), navigateur
+à 1440 × 900 et 1280 × 720 : carte, ajout d'un pays, filtre, « Tout effacer », décennie,
+glisser sur la frise, lecture, bouton Sources, redirection de `#v=atlas`.
+
+## D29. Une seule désignation des pays : `pinned`, pour la carte, le flux et le classement
+
+**Statut** : adoptée et implémentée le 2026-11-09 sur `feat/axel-carte` (étape 2 de la
+refonte de l'UX, après D28).
+
+**Constat** : la carte et la barre de contexte écrivaient les pays dans `pinned` (et
+`focus`) ; le classement ne lisait et n'écrivait que le filtre `filters.country`. Choisir
+un pays sur la carte ne changeait donc pas le classement, et l'inverse non plus ; le flux,
+lui, lisait les trois. La mesure commune n'atteignait pas le flux.
+
+**Décision** :
+
+- **Les pays explorés sont les pays de `pinned`** (`focus` suit le dernier, comme dans la
+  sélection de la carte). Un filtre `country` n'est plus écrit par personne ; il n'est lu
+  que si rien n'est épinglé, pour qu'un ancien lien s'ouvre encore sur son pays, et le
+  classement le migre dans `pinned` au premier changement d'un de ses contrôles (la barre de contexte l'affiche d'ici là comme un filtre).
+- **Classement** (`shared-countries.ts`, `index.ts`) : son sélecteur de pays lit `pinned`
+  (un pays : son nom ; plusieurs : « n pays sélectionnés ») et y écrit ; les incidents sont
+  filtrés par ces pays. Choisir « Tous » retire les pays de la barre commune.
+- **Flux** (`index.ts`) : les pays viennent de `pinned`, puis de `focus`, puis de l'ancien
+  filtre. La mesure commune règle l'épaisseur des rubans (incidents, morts, blessés ;
+  « morts par incident » n'a pas de rubans : la dernière mesure reste). `applyShared`
+  accepte un champ `metric` facultatif.
+
+**Points ouverts** : le classement écrit dans l'adresse tous ses réglages, même à leur
+valeur par défaut (`x.leaderboard.*`), ce qui allonge les liens ; ses filtres de province,
+ville et sous-types restent locaux.
+
+**Vérification** : `npm run typecheck`, `npm test` (225, dont les pays épinglés du classement et un ancien lien) ; navigateur : Irak ajouté dans la
+barre, repris par le classement (« Iraq », 1 179 incidents en 2010) et par le flux
+(« Irak — modes opératoires », 24 636 incidents) ; « France » choisie dans le classement
+devient la pastille de la barre, « Tous » la retire ; les mesures Morts et Blessés
+changent l'épaisseur des rubans du flux.
+
+## D30. Le flux dans la boîte de la planche : une barre, le diagramme centré, un seul bouton de disposition
+
+**Statut** : adoptée et implémentée le 2026-11-09 sur `feat/axel-carte` (étape 3 de la
+refonte de l'UX, après D28 et D29).
+
+**Constat** (1440 × 900, avant) : le flux était une application complète collée dans la
+planche : barre d'application, colonne de 960 px de hauteur (période, pays, régions,
+dimensions, catégories, mesure, affichage), bandeau de chiffres, cadre « Périmètre
+affiché », bandeau d'en-tête du graphique, curseur « Une structure, deux lectures » avec
+deux boutons, légende et pied de page : le diagramme commençait vers 630 px du haut et
+la page débordait de 849 px. La disposition horizontale ou radiale n'apporte rien au
+sujet ; elle coûtait deux boutons, un curseur et une zone dédiée.
+
+**Décision** (`src/modules/flow/`) :
+
+- **Mise en page** (`template.html`, `layout.css`) : une barre de réglages d'une ligne,
+  une ligne de synthèse, puis le diagramme, qui remplit tout le reste et se centre ; la
+  sélection (« Filtrer la sélection ») est une barre posée dans le diagramme ; une ligne
+  de notes (lecture, qualité des données, « Source et méthode ») termine. Mesuré : plus
+  aucun défilement (ni de la page ni de la boîte) à 1440 × 900 (diagramme de 595 px de
+  haut) et à 1280 × 720 (433 px).
+- **Ce qui part vers le shell** : la période et la comparaison (la frise du bas), les pays
+  (D29), la mesure (la barre de contexte). Les champs correspondants de l'ancien gabarit
+  sont gardés cachés (`.fl-legacy`) : le moteur les lit par leur identifiant et reste
+  inchangé. Un test (`template.test.ts`) vérifie que tout identifiant que le moteur
+  cherche existe dans le gabarit, une seule fois.
+- **Ce qui reste propre au flux**, dans trois menus sous leurs boutons : « Dimensions »
+  (point de départ, niveaux et ordre), « Filtres du flux » (région, catégories, avec leur
+  compteur et « Réinitialiser »), « Affichage » (catégories par niveau, ordre, valeurs ou
+  pourcentages) ; plus « Catégories » (la légende, qui sert aussi à survoler et
+  sélectionner), la sélection commune (« ↺ Sélection commune »), le zoom, le plein écran,
+  l'export, l'import d'un CSV et l'aide. Un seul menu s'ouvre à la fois ; clic ailleurs
+  ou Échap le ferme.
+- **Un seul bouton Radial / Horizontal** : il appuie sur le bon bouton caché du moteur
+  (qui anime le passage) et prend le nom de la disposition vers laquelle il mène. Le
+  curseur, les deux boutons et le bloc « Transformer » sont retirés de l'écran.
+- La ligne d'état du moteur n'est lue qu'à voix haute, sauf quand elle porte un avis (CSV
+  importé, échec de chargement).
+
+**Points ouverts** : le diagramme garde son repère de 1280 × 760 : à 1280 × 720 il est
+réduit à 57 % et ses étiquettes font environ 6,5 px (le plein écran rend toute la fenêtre).
+La suite logique est une géométrie qui suit la taille de la boîte (hauteur du repère et
+rayon du cercle), ce qui touche `geometry.js` et le moteur. `native.css` contient des
+règles mortes (colonne, bandeau, curseur) à retirer. La barre passe sur deux lignes
+au-dessous d'environ 1200 px de large.
+
+**Vérification** : `npm run typecheck`, `npm test` ; navigateur : bouton Radial puis
+Horizontal, les quatre menus (un seul ouvert, fermés par un clic ailleurs), sélection d'un
+nœud et son effacement, préréglage « Acteurs et tactiques », pourcentages, filtre de
+région et sa réinitialisation, pays et mesure de la barre commune.
+
+## D31. Le classement dans la boîte de la planche : barre, synthèse, classement qui remplit, lecture dessous
+
+**Statut** : adoptée et implémentée le 2026-11-09 sur `feat/axel-carte` (étape 4 de la
+refonte de l'UX, après D28 à D30).
+
+**Constat** (1440 × 900, avant) : le classement débordait de 1 146 px : une colonne de
+filtres (période, localisation, acteurs, caractéristiques), un titre, trois cartes de
+chiffres, une carte de réglages (catégorie, indicateur, résultats, minimum, agrégation,
+calcul, Unknown, regroupement), une barre d'animation, puis le graphique tout en bas ; le
+classement lui-même était sous la ligne de flottaison.
+
+**Décision** (`src/modules/leaderboard/`) :
+
+- **Mise en page** (`layout.ts`, `layout.css`) : le module construit son DOM comme avant ;
+  `arrangeLayout` déplace ensuite les nœuds, sans les recréer, de sorte que chaque
+  contrôle garde son identifiant et ses écouteurs. Quatre blocs : une barre (catégorie,
+  indicateur, résultats, calcul, et cinq boutons de panneaux), une synthèse d'une ligne
+  (période affichée, incidents sélectionnés, catégories affichées, puis le résumé de la
+  sélection), le classement qui remplit tout le reste, la lecture dessous. Mesuré : plus
+  aucun défilement de la page à 1440 × 900 (classement de 574 px de haut, lignes de 36 px) et
+  à 1280 × 720 (374 px, lignes de 16 px, 3 px de défilement dans le graphique).
+- **Cinq panneaux** sous leurs boutons, un seul ouvert à la fois (clic ailleurs ou Échap le
+  ferme) : « Filtres » (région, province, sous-types d'arme et de cible, réussite, doute,
+  bilans renseignés, réinitialisation), « Options » (minimum d'incidents, agrégation,
+  Unknown), « Regrouper » (le regroupement de catégories), « Repères » (les notes de
+  lecture et de méthode) et « Données » (l'aperçu des dix premiers incidents).
+- **Ce que le shell tient déjà** reste dans le gabarit, replié (`.lb-legacy`) : période,
+  pays, organisation, types d'attaque, de cible et d'arme, attentat-suicide. La vue les
+  lit et les écrit comme avant ; un test vérifie qu'ils sont bien là.
+- **Graphique** (`charts/leaderboard.ts`) : dans une boîte à hauteur propre (classe
+  `is-fit`), les lignes passent de 38 px à ce qui reste, jusqu'à 16 px au minimum (puis la
+  boîte défile), et la courbe de synthèse se pose sous les lignes (collante) au lieu de les
+  recouvrir. Hors de ce mode, le graphique est inchangé.
+- **Lecture** : l'animation propre au classement (qui parcourt les années de la période)
+  remplace le bouton « Lire » de la zone temps, masqué sur cette planche, ainsi que la
+  touche Espace du shell : deux lectures de sens différents sur le même écran prêtaient à
+  confusion. La période se règle toujours sur la frise.
+
+**Points ouverts** : le classement écrit toujours dans l'adresse tous ses réglages, même par
+défaut (`x.leaderboard.*`) ; la barre passe sur deux lignes sous environ 1300 px de large ;
+les libellés des boutons de lecture sont longs ; le filtre « Région » n'existe que dans la
+vue (la barre commune n'a pas de région : le cube ne la porte pas) ; les règles de
+`leaderboard.css` de l'ancienne colonne sont à retirer.
+
+**Vérification** : `npm run typecheck`, `npm test` (228) ; navigateur : les cinq panneaux
+(un seul ouvert, dans la fenêtre), la lecture (1970 à 1973, puis pause), le changement de
+catégorie (groupes), le filtre de région qui devient une pastille de la barre commune et
+s'efface.
+
+## D32. Flux et classement : les réglages dans une colonne à gauche, la visualisation prend la hauteur
+
+**Statut** : adoptée et implémentée le 2026-11-09 sur `feat/axel-carte`, à la demande
+d'Axel ; remplace la barre horizontale et la ligne de synthèse de D30 et D31.
+
+**Constat** : D30 et D31 avaient mis les réglages au-dessus de la visualisation. Sur un écran
+large mais bas, c'est la hauteur qui manque : le flux était réduit à 57 % à 1280 × 720
+(étiquettes de 6,5 px) et les lignes du classement tombaient à 16 px, loin de vraies barres.
+
+**Décision** (`flow/template.html`, `flow/layout.css`, `leaderboard/layout.ts`,
+`leaderboard/layout.css`) : les deux planches ont la même structure, une colonne de 264 px à
+gauche et la visualisation à droite, **aussi haute que la boîte** ; on perd de la largeur,
+dont ni l'une ni l'autre ne manque.
+
+- **La colonne ne défile pas** et n'a pas de bouton de repli. Pour que tout y tienne, les
+  réglages courants sont sur deux colonnes et les réglages rares s'ouvrent en panneaux à côté
+  de la colonne, par-dessus la visualisation, depuis son bord haut (un seul à la fois ; clic
+  ailleurs ou Échap les ferme).
+- **Flux** : synthèse (titre, incidents, morts avec la part de bilans connus, relations, filtres
+  actifs), cinq boutons de panneaux (Dimensions, Filtres du flux, Affichage, Catégories,
+  Repères), le bouton Radial / Horizontal et le zoom, puis les données (sélection commune,
+  source, CSV, aide). Les notes de lecture et de qualité des données passent dans « Repères ».
+  Le diagramme n'est plus limité par la hauteur : échelle de 0,92 à 1440 × 900 (étiquettes de
+  11 px, contre 9) et de 0,72 à 1280 × 720 (8,6 px, contre 6,5).
+- **Classement** : catégorie et résultats sur une ligne, indicateur ; cinq boutons de panneaux
+  (Filtres, Options, Regrouper, Repères, Données ; « Calcul » passe dans Options) ; les chiffres
+  (période affichée, incidents sélectionnés, résumé de la sélection) ; la lecture en bas de la
+  colonne. Le classement prend toute la hauteur : barres de 41 px de haut (lignes de 49 px)
+  à 1440 × 900 et de 25 px (33 px) à 1280 × 720, au lieu de 28 px et 16 px ; le graphique plafonne
+  ses lignes à 64 px dans cette boîte et grossit ses étiquettes avec elles (12 à 17 px).
+- **Mesuré** : aucun défilement de la page, de la colonne ni du classement à 1440 × 900
+  (colonne de 706 px) et à 1280 × 720 (544 px, tout y tient).
+
+**Points ouverts** : la colonne est faite pour environ 544 px de haut au minimum ; plus bas, ses
+derniers boutons sortiraient de la boîte. Le flux garde son repère de 1280 × 760 (limite
+d'échelle) ; sous environ 1100 px de large la colonne reste à 264 px.
+
+## D33. Classement : jusqu'à 20 lignes sans défilement ; frise : repères d'année
+
+**Statut** : adoptée et implémentée le 2026-11-09 sur `feat/axel-carte`, à la demande d'Axel.
+
+**Classement** (`leaderboard/charts/leaderboard.ts`) : le cadre du classement garde la même
+taille quel que soit le nombre de lignes. Jusqu'à 20 catégories, tout tient sans défilement :
+ce sont les barres qui s'amincissent (lignes de 49 px pour 10 catégories à 1440 × 900, de 33 px
+à 1280 × 720, de 16 px pour 20 ; barres d'au moins 6 px, étiquettes d'au moins 10 px) et la boîte
+n'a plus de barre de défilement. Au-delà de 20 (« 50 », « Tous »), les lignes gardent 16 px et la
+boîte défile. Le sélecteur « Résultats » reste à 10, 20, 50 et « Tous ». Mesuré à 1280 × 720 : le
+cadre reste à 544 px pour 10, 20 et 50 lignes, sans défilement jusqu'à 20, avec 473 px de
+défilement pour 33 lignes.
+
+**Frise partagée** (`shell/timeline.ts`, `shell/plate.css`) : trois repères pour lire l'année.
+Une graduation par année, plus longue tous les cinq ans et tous les dix ans, sous l'histogramme
+(les années en chiffres restent aux décennies, sauf sous 760 px de haut) ; une étiquette qui suit le
+pointeur et donne l'année et sa valeur (« 2014 : 16 903 incidents », « 1993 : pas de donnée ») ;
+les deux années de la période écrites sur les bords de la fenêtre (une seule étiquette « 2003 »
+ou « 2002–2003 » quand la fenêtre est trop étroite pour deux). Elles suivent la fenêtre pendant la
+lecture.
+
+**Vérification** : `npm run typecheck`, `npm test` (228) ; navigateur : classement à 10, 20 et 50
+lignes à 1280 × 720 ; frise : survol d'une année et d'une année sans donnée, étiquettes de la
+période (2010–2017, une année).

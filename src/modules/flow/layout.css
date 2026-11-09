@@ -1,0 +1,354 @@
+/*
+ * The flow view in the plate's box (D30, D32): a narrow column on the left with every setting of the
+ * Sankey, none of it scrolling, and the diagram beside it, as tall as the box and centred. The period,
+ * the countries, the metric and the common filters are the shell's; what stays here is what only a
+ * Sankey has (its dimensions, its region and category filters, how many categories, the layout).
+ * The settings used less often open as panels beside the column. native.css styles the controls;
+ * this file lays them out, so it comes after it.
+ */
+.gtd-flow {
+  height: 100%;
+}
+
+.gtd-flow-surface {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  background: #fff;
+}
+
+.gtd-flow-surface .fl-app {
+  display: grid;
+  grid-template-columns: 264px minmax(0, 1fr);
+  flex: 1;
+  min-height: 0;
+}
+
+/* ------------------------------------------------------------------ the column */
+
+.gtd-flow-surface .fl-side {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+  padding: 12px 14px;
+  border-right: 1px solid var(--line);
+  background: #f6f6f3;
+  font-size: 12.5px;
+}
+
+.gtd-flow-surface .fl-block {
+  display: grid;
+  gap: 6px;
+}
+
+.gtd-flow-surface .fl-panels {
+  grid-template-columns: 1fr 1fr;
+}
+
+.gtd-flow-surface .fl-btn,
+.gtd-flow-surface .fl-side select,
+.gtd-flow-surface .fl-side .import-button,
+.gtd-flow-surface .fl-side .dataset-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 0;
+  min-height: 32px;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  background: #fff;
+  color: var(--text);
+  font: inherit;
+  font-size: 12.5px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.gtd-flow-surface .fl-btn:hover,
+.gtd-flow-surface .fl-side .import-button:hover,
+.gtd-flow-surface .fl-side .dataset-pill:hover {
+  border-color: #1d1d1b;
+}
+
+.gtd-flow-surface .fl-btn.is-open,
+.gtd-flow-surface .fl-layout[aria-pressed='true'] {
+  border-color: #1d1d1b;
+  background: #1d1d1b;
+  color: #fff;
+}
+
+.gtd-flow-surface .fl-layout {
+  width: 100%;
+}
+
+.gtd-flow-surface .fl-layout svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.2;
+}
+
+.gtd-flow-surface .fl-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.gtd-flow-surface .fl-data {
+  grid-template-columns: 1fr auto auto;
+  margin-top: auto;
+  padding-top: 10px;
+  border-top: 1px solid #1d1d1b;
+}
+
+.gtd-flow-surface .fl-data #resumeSlot,
+.gtd-flow-surface .fl-data .fl-btn {
+  grid-column: 1 / -1;
+}
+
+.gtd-flow-surface .fl-data #resumeSlot {
+  display: grid;
+}
+
+.gtd-flow-surface .fl-label {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+/* The panels open beside the column, over the diagram, from its top edge. */
+.gtd-flow-surface .fl-popwrap {
+  display: contents;
+}
+
+.gtd-flow-surface .fl-pop {
+  position: absolute;
+  top: 0;
+  left: calc(100% + 8px);
+  z-index: 30;
+  display: grid;
+  gap: 10px;
+  width: 320px;
+  max-height: 100%;
+  padding: 14px;
+  overflow: auto;
+  border: 1px solid #1d1d1b;
+  border-radius: 2px;
+  background: #fff;
+}
+
+.gtd-flow-surface .fl-pop-wide {
+  width: min(560px, calc(100vw - 300px));
+}
+
+.gtd-flow-surface .fl-pop .field-hint {
+  margin: 0;
+}
+
+.gtd-flow-surface .fl-field-block {
+  display: grid;
+  gap: 4px;
+}
+
+.gtd-flow-surface .fl-pop select {
+  width: 100%;
+}
+
+.gtd-flow-surface .fl-pop .legend {
+  display: grid;
+  gap: 12px;
+  padding: 0;
+}
+
+.gtd-flow-surface .fl-pop .legend-group {
+  padding: 0 0 10px;
+  border-right: 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.gtd-flow-surface .fl-pop .legend-group:last-child {
+  border-bottom: 0;
+}
+
+.gtd-flow-surface .fl-pop .legend-item {
+  font-size: 11px;
+  max-width: 220px;
+}
+
+.gtd-flow-surface .fl-note {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.gtd-flow-surface .fl-note button {
+  justify-self: start;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* ------------------------------------------------------------------ summary */
+
+.gtd-flow-surface .fl-summary {
+  display: grid;
+  gap: 4px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--line);
+}
+
+.gtd-flow-surface .fl-summary h1 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 650;
+  line-height: 1.3;
+}
+
+.gtd-flow-surface .kpis {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 2px;
+}
+
+.gtd-flow-surface .kpi {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  white-space: nowrap;
+}
+
+.gtd-flow-surface .kpi strong {
+  order: 1;
+  font-size: 16px;
+  font-weight: 650;
+}
+
+.gtd-flow-surface .kpi-label {
+  order: 2;
+  font-size: 12px;
+  color: var(--muted);
+  letter-spacing: 0;
+}
+
+.gtd-flow-surface .kpi-note {
+  order: 3;
+  overflow: hidden;
+  font-size: 11px;
+  color: var(--muted);
+  text-overflow: ellipsis;
+}
+
+/* The period is in the shared bar and the number of nodes says little. */
+.gtd-flow-surface #periodKpi,
+.gtd-flow-surface #nodesKpi {
+  display: none;
+}
+
+.gtd-flow-surface .fl-summary .active-filters {
+  margin: 0;
+  gap: 6px;
+}
+
+.gtd-flow-surface .fl-summary .compare-legend {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.gtd-flow-surface .fl-summary .scope-warning,
+.gtd-flow-surface .fl-summary .scope-territories {
+  margin: 0;
+  font-size: 12px;
+}
+
+/* ------------------------------------------------------------------ the diagram, centred in what is left */
+
+.gtd-flow-surface .chart-card {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  border: 0;
+  border-radius: 0;
+}
+
+.gtd-flow-surface .chart-viewport {
+  flex: 1;
+  height: auto;
+  min-height: 0;
+  max-height: none;
+  aspect-ratio: auto;
+}
+
+.gtd-flow-surface #chart {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.gtd-flow-surface .dimension-breadcrumb {
+  position: absolute;
+  top: 8px;
+  left: 16px;
+  z-index: 2;
+  font-size: 12px;
+  color: var(--muted);
+  pointer-events: none;
+}
+
+.gtd-flow-surface .chart-watermark {
+  display: none;
+}
+
+.gtd-flow-surface .selection-bar {
+  position: absolute;
+  bottom: 12px;
+  left: 50%;
+  z-index: 5;
+  max-width: calc(100% - 40px);
+  border: 1px solid #1d1d1b;
+  border-radius: 2px;
+  transform: translateX(-50%);
+}
+
+/* The status line: read out by screen readers; shown only when it carries a notice (an imported CSV, a failure). */
+.gtd-flow-surface .flow-status {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.gtd-flow-surface .flow-status.is-notice {
+  position: static;
+  width: auto;
+  height: auto;
+  padding: 6px 8px;
+  overflow: visible;
+  clip-path: none;
+  white-space: normal;
+  border: 1px solid var(--warning-line, #e6c36a);
+  background: var(--warning-bg, #fdf3dc);
+  font-size: 12px;
+}

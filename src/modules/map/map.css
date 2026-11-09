@@ -25,12 +25,10 @@
   --cv-shadow: none;
   --cv-z-overlay: 2;
   --cv-z-tooltip: 10;
+  /* The view fills the box the shell gives it (D28): the stage takes all of it. */
   display: grid;
-  grid-template-rows: minmax(0, 1fr) auto;
-  gap: 12px;
-  /* --shell-chrome: height the shell takes above the view (masthead and plate heading). */
-  height: max(620px, calc(100vh - var(--shell-chrome, 132px)));
-  max-width: 1640px;
+  grid-template-rows: minmax(0, 1fr);
+  height: 100%;
   margin: 0 auto;
   color: var(--cv-ink);
   font-size: 14px;
@@ -97,13 +95,24 @@
 /* ------------------------------------------------------------------ stage */
 .cv-stage {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 372px;
+  grid-template-columns: minmax(0, 1fr) 340px;
   gap: 12px;
   min-height: 0;
+  height: 100%;
 }
 
 .cv-stage:has(.cv-panel.is-compare) {
-  grid-template-columns: minmax(0, 1fr) 500px;
+  grid-template-columns: minmax(0, 1fr) 460px;
+}
+
+/* Folded panel: the globe takes the whole width. */
+.cv-stage.is-panel-closed,
+.cv-stage.is-panel-closed:has(.cv-panel.is-compare) {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.cv-stage.is-panel-closed > .cv-panel {
+  display: none;
 }
 
 .cv-globe {
@@ -214,12 +223,20 @@
   color: var(--cv-worse);
 }
 
-.cv-zoom {
+.cv-toolbar {
   position: absolute;
   top: 14px;
   right: 14px;
   z-index: var(--cv-z-overlay);
-  display: grid;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+  max-width: calc(100% - 28px);
+}
+
+.cv-zoom {
+  display: flex;
   overflow: hidden;
   border: 1px solid var(--cv-strong-line);
   border-radius: 2px;
@@ -238,7 +255,7 @@
 }
 
 .cv-zoom button + button {
-  border-top: 1px solid var(--cv-hairline);
+  border-left: 1px solid var(--cv-hairline);
 }
 
 .cv-zoom button:hover {
@@ -1081,41 +1098,9 @@
   border-radius: 50%;
 }
 
-/* ------------------------------------------------------------------ D20: layer, period, selection, organizations */
-.cv-layer {
-  position: absolute;
-  top: 14px;
-  left: 14px;
-  z-index: var(--cv-z-overlay);
-  display: flex;
-  padding: 3px;
-  border: 1px solid var(--cv-strong-line);
-  border-radius: 2px;
-  background: var(--cv-surface);
-}
-
-.cv-layer button {
-  min-height: 32px;
-  padding: 5px 12px;
-  border: none;
-  border-radius: 2px;
-  background: none;
-  color: var(--cv-secondary);
-  cursor: pointer;
-}
-
-.cv-layer button.is-active {
-  background: var(--cv-ink);
-  font-weight: 600;
-  color: #fff;
-}
-
-.cv-hint {
-  top: 62px;
-}
-
-/* Beside a wide globe the hint keeps to the left margin, under the layer switch, so it never covers
-   the top of the sphere and its labels. Phones give it a band of its own (below). */
+/* ------------------------------------------------------------------ D20: period, selection, organizations */
+/* Beside a wide globe the hint keeps to the left margin, so it never covers the top of the sphere
+   and its labels. Phones give it a band of its own (below). */
 @media (min-width: 641px) {
   .cv-hint {
     max-width: 220px;
@@ -1539,10 +1524,6 @@
 }
 
 .cv-world-button {
-  position: absolute;
-  top: 92px;
-  right: 14px;
-  z-index: var(--cv-z-overlay);
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -1556,8 +1537,126 @@
 }
 
 .cv-world-button:hover,
+.cv-clear-button:hover,
 .cv-zoom button:hover {
   background: var(--cv-sunken);
+}
+
+/* Left of the zoom: folds or opens the side panel. */
+.cv-panel-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 4px 12px 4px 10px;
+  border: 1px solid var(--cv-strong-line);
+  border-radius: 2px;
+  background: var(--cv-surface);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.cv-panel-toggle[hidden] {
+  display: none;
+}
+
+.cv-panel-toggle:hover {
+  background: var(--cv-sunken);
+}
+
+.cv-panel-toggle.is-active {
+  border-color: var(--cv-ink);
+  background: var(--cv-ink);
+  color: #fff;
+}
+
+.cv-panel-toggle[disabled] {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.cv-panel-toggle .cv-icon {
+  width: 16px;
+  height: 16px;
+}
+
+/* Under « Monde », while countries are selected: empties the selection and returns to the globe. */
+.cv-clear-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 4px 12px 4px 10px;
+  border: 1px solid var(--cv-frame);
+  border-radius: 2px;
+  background: var(--cv-surface);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.cv-clear-button[hidden] {
+  display: none;
+}
+
+.cv-clear-button .cv-icon {
+  width: 16px;
+  height: 16px;
+}
+
+/* ------------------------------------------------------------------ semantic zoom: legend of the organizations */
+.cv-legend-groups {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 3px 10px;
+}
+
+.cv-legend-group {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+}
+
+.cv-legend-group-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cv-legend-label {
+  font-weight: 600;
+  color: var(--cv-ink);
+}
+
+.cv-legend-glyph {
+  display: inline-flex;
+}
+
+.cv-legend-line {
+  margin: 0;
+  font-size: 11.5px;
+}
+
+.cv-legend-label {
+  margin: 2px 0 -2px;
+}
+
+.cv-legend-more summary {
+  cursor: pointer;
+  font-size: 11.5px;
+  color: var(--cv-ink);
+}
+
+.cv-legend-more .cv-legend-note {
+  margin: 4px 0 0;
+}
+
+.cv-dot.is-suicide {
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--cv-ink);
+  background: transparent;
 }
 
 .cv-bar-tools {
@@ -1730,6 +1829,7 @@
   .cv-stage,
   .cv-stage:has(.cv-panel.is-compare) {
     grid-template-columns: minmax(0, 1fr);
+    height: auto;
   }
 
   .cv-globe {
