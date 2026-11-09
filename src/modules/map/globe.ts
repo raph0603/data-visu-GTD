@@ -5,59 +5,45 @@ import type { CountryAtlas } from '../../core/geo';
 import { categoryLabel } from '../../core/labels';
 import { baseRadius, clampCamera, easeOut, fitCamera, flight, frontProjection, kmPerPixel, MAX_K, onFrontSide, PointProjector, projectionFor, rotateBy, viewRadius, zoomAround, type Camera, type Flight, type Viewport } from './camera';
 import { formatCount, formatRange, formatRate, formatShare, formatWithUnit, ordinal, plural } from './format';
-import { weightUnit, type Env, type Frame } from './frame';
+import { MIN_INCIDENTS_FOR_MEAN, weightUnit, type Env, type Frame } from './frame';
 import { ClassField, HeatField, heatGradient } from './heat';
 import { icon, iconLabel } from './icons';
 import { cellsOf, deadliestFirst, incidentCategory, incidentDate, type Cells, type IncidentFiles, type IncidentSet } from './incidents';
 import { emptyTotals, filtersKey, isNamedGroup, knownShareOf, metricOf } from './model';
 import { compareIds, nearestTo, neighbour, PILE_PX, type Direction, type Spot } from './neighbour';
 import { bubblesOf, glyphOf, glyphSvg, GroupColors, traceGlyph, WEAPON_GLYPHS, type Bubble } from './organizations';
-import { MIN_POPULATION_FOR_RATE } from './population';
+import { MIN_POPULATION_FOR_RATE, perMillion } from './population';
 import { clearCountries, MAX_SELECTION, selectedCountries as selectedOf, toggleCountry, type Level } from './selection';
 import type { Sel, TooltipLine } from './ui';
 
 const SPHERE: GeoSphere = { type: 'Sphere' };
 const GRATICULE = geoGraticule10();
-/** Flat sea and an ink edge, as on the atlas cover (D23): no lighting, no shadow. */
 const OCEAN = '#f3f5f7';
 const LIMB = '#1d1d1b';
 const BORDER = 'rgba(255, 255, 255, 0.9)';
-/** Land of the selected countries: lit, so that the semantic zoom shows where they are. */
 const EXPLORED_LAND = '#fbfbf9';
-/** Land under the heat: neutral, so the only colour on the globe is the density. */
 const LAND = '#e8e7e2';
 const INK = '#1d1d1b';
 const ARROWS: Record<string, Direction> = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down' };
 const OTHER = '#8a8983';
-/** The shell's typeface (D23), with the system one while it loads. */
 const FONT = '"Libre Franklin Variable", system-ui, -apple-system, "Segoe UI", sans-serif';
 
-/** Degrees per second of the idle rotation. */
 const SPIN_SPEED = 3;
 const COLOR_TWEEN_MS = 320;
 const FADE_MS = 200;
-/** Blur radius of the heat on screen (px), and the step of its grid. */
+const RANKING_MS = 400;
 const HEAT_RADIUS = 15;
 const HEAT_CELL = 3;
-/** Above this many incidents in view, points melt into the heat (when its blobs stay large). */
 const POINTS_MAX = 1500;
 const LINKS_SHOWN = 8;
-/** Rates (often below 1 per million) spread over four decades of a log scale under the maximum. */
 const RATE_DECADES = 4;
 const CITY_LABELS = 7;
-/** Share of the view the selected countries fill when framed. */
 const SELECTION_MARGIN = 0.8;
-/**
- * Semantic zoom (D25). Under this many km per pixel, the heat gives way to the territories of the
- * organizations (sooner when countries are selected, so that selecting one is enough).
- */
 const REGION_KPP = 7;
 const REGION_KPP_SELECTED = 12;
-/** Blur radius and grid step of the territories: finer than the heat, at a finer scale. */
 const TERRITORY_RADIUS = 14;
 const TERRITORY_CELL = 3;
 
-/** A drawn shape and its bounding circle on the sphere, to skip what cannot be on screen. */
 interface Shape {
   readonly iso3: string | null;
   readonly feature: Feature<Polygon | MultiPolygon>;
@@ -65,7 +51,6 @@ interface Shape {
   readonly radius: number;
 }
 
-/** One border line of the mesh, with its bounding circle like a shape. */
 interface Border {
   readonly line: LineString;
   readonly centre: [number, number];
@@ -74,15 +59,12 @@ interface Border {
 
 interface Layer {
   readonly shapes: readonly Shape[];
-  /** The border mesh split into lines, so that a zoomed view only projects the borders in view. */
   readonly borders: readonly Border[];
-  /** Shapes outside the border mesh (small countries added to the simplified layer): stroked one by one. */
   readonly outlined: readonly Shape[];
 }
 
 interface Place {
   readonly shape: Shape;
-  /** Largest polygon: framing and labels ignore overseas parts. */
   readonly main: Feature<Polygon>;
   readonly anchor: [number, number];
 }
@@ -96,7 +78,6 @@ interface Link {
 type Fill = string | null;
 type Mode = 'none' | 'heat' | 'groups' | 'points';
 
-/** Incidents drawn one by one (points mode), projected at each frame. */
 interface Placed {
   n: number;
   xs: Float64Array;
@@ -106,21 +87,17 @@ interface Placed {
   index: Uint32Array;
 }
 
-/** What the panel points at: a country or an organization (shared hover), or one incident. */
 export type Highlight = { readonly dim: string; readonly id: string } | null;
 
 export interface Globe {
   update(frame: Frame): void;
-  /** Country or organization hovered elsewhere (panel, other views): outlined on the globe. */
   highlight(ref: Highlight): void;
-  /** Incident hovered in the panel: ringed where it is. */
   previewIncident(eventId: string | null): void;
   destroy(): void;
 }
 
 export interface GlobeAtlases {
   readonly detail: CountryAtlas;
-  /** Simplified geometry drawn while the globe moves; null when it could not be loaded. */
   readonly coarse: CountryAtlas | null;
 }
 
@@ -130,7 +107,6 @@ export function createGlobe(parent: Sel<HTMLDivElement>, env: Env, atlases: Glob
   const win = doc.defaultView;
   const reducedMotion = win?.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
 
-  // ------------------------------------------------------------------ DOM
   const canvas = parent
     .append('canvas')
     .attr('class', 'cv-globe-canvas')
@@ -142,9 +118,15 @@ export function createGlobe(parent: Sel<HTMLDivElement>, env: Env, atlases: Glob
     .attr('id', 'cv-globe-keys')
     .attr('class', 'cv-sr-only')
     .text('Flèches : passer à l’attentat voisin dans la direction, Maj et flèche pour sortir d’une pile d’attentats au même endroit. Plus et moins : zoomer. Entrée : sélectionner le pays au centre. Échap : fermer la fiche ou vider la sélection.');
-  const hint = parent.append('p').attr('class', 'cv-hint');
+  const corner = parent.append('div').attr('class', 'cv-globe-corner');
+  const ranking = corner.append('section').attr('class', 'cv-map-ranking').attr('aria-labelledby', 'cv-map-ranking-title');
+  const rankingTitle = ranking.append('h3').attr('id', 'cv-map-ranking-title');
+  const rankingMetric = ranking.append('p');
+  const rankingList = ranking.append('ol');
+  const rankingEmpty = ranking.append('p');
+  let rankingKey = '';
+  const hint = corner.append('p').attr('class', 'cv-hint');
   const status = parent.append('p').attr('class', 'cv-globe-status').attr('role', 'status');
-  // One row of controls along the top edge, so the cards keep the height of the view.
   const toolbar = parent.append('div').attr('class', 'cv-toolbar');
   const clearButton = toolbar
     .append('button')
@@ -162,13 +144,11 @@ export function createGlobe(parent: Sel<HTMLDivElement>, env: Env, atlases: Glob
   const controls = toolbar.append('div').attr('class', 'cv-zoom').attr('role', 'group').attr('aria-label', 'Zoom');
   const legend = parent.append('div').attr('class', 'cv-legend');
 
-  // + and − are universal: icon alone, with a label for screen readers. « Monde » gets its word (D22).
   const button = (html: string, title: string, onClick: () => void) =>
     controls.append('button').attr('type', 'button').attr('aria-label', title).attr('title', title).html(html).on('click', onClick);
   button(icon('plus'), 'Zoomer (+)', () => zoomBy(1.6));
   button(icon('minus'), 'Dézoomer (−)', () => zoomBy(1 / 1.6));
 
-  // ------------------------------------------------------------------ geometry
   const detail = buildLayer(atlases.detail);
   const coarse = atlases.coarse === null ? null : hybridLayer(atlases.coarse, detail);
   const places = new Map<string, Place>();
@@ -177,13 +157,11 @@ export function createGlobe(parent: Sel<HTMLDivElement>, env: Env, atlases: Glob
     const main = largestPolygon(shape.feature);
     places.set(shape.iso3, { shape, main, anchor: geoCentroid(main) as [number, number] });
   }
-  // Smallest shapes first, so that an enclave (Lesotho) wins over the country around it.
   const pickable = detail.shapes.filter((s) => s.iso3 !== null).sort((a, b) => a.radius - b.radius);
   const heat = new HeatField(doc, HEAT_CELL, HEAT_RADIUS);
   const territories = new ClassField(doc, TERRITORY_CELL, TERRITORY_RADIUS);
   const groupColors = new GroupColors();
 
-  // ------------------------------------------------------------------ state
   let viewport: Viewport = { width: 0, height: 0 };
   let dpr = 1;
   let camera: Camera = { lambda: 20, phi: 18, k: 1 };
@@ -197,14 +175,12 @@ export function createGlobe(parent: Sel<HTMLDivElement>, env: Env, atlases: Glob
   let dragging = false;
   let wheeling: number | null = null;
   let spinStopped = reducedMotion;
-  /** The camera is on the framing of the selection, not moved by the reader since. */
   let framed = false;
   let pointerInside = false;
   let hovered: string | null = null;
   let external: string | null = null;
   let externalGroup: string | null = null;
   let previewed: string | null = null;
-  /** Cross-fade of the incident layer when the period or a filter changes (D22). */
   const fadeCanvas = doc.createElement('canvas');
   let fadeStart = -Infinity;
   let fadeCamera = '';
@@ -216,7 +192,6 @@ export function createGlobe(parent: Sel<HTMLDivElement>, env: Env, atlases: Glob
   let tweenStart = -Infinity;
 
   let placed: Placed = { n: 0, xs: new Float64Array(0), ys: new Float64Array(0), rs: new Float64Array(0), sets: [], index: new Uint32Array(0) };
-  /** Position cells of the incident layer that fall in view, projected at each frame (hexagon mode). */
   let inView = { n: 0, total: 0, xs: new Float64Array(0), ys: new Float64Array(0), idx: new Uint32Array(0) };
   let cells: Cells | null = null;
   let lastSelection: readonly string[] = [];
@@ -232,7 +207,6 @@ export function createGlobe(parent: Sel<HTMLDivElement>, env: Env, atlases: Glob
 
   const now = () => win?.performance?.now() ?? Date.now();
 
-  // ------------------------------------------------------------------ sizing
   const resize = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(() => measure());
   const parentNode = parent.node();
   if (resize !== null && parentNode !== null) resize.observe(parentNode);
@@ -249,12 +223,10 @@ export function createGlobe(parent: Sel<HTMLDivElement>, env: Env, atlases: Glob
     element.style.width = `${box.width}px`;
     element.style.height = `${box.height}px`;
     if (first) camera = { ...camera, k: worldZoom() };
-    // The first size decides the framing of a deep link (#f=country:IRQ): no flight to it.
     if (first && frame !== null) {
       targetKey = null;
       syncCamera(frame, true);
     } else if (framed && frame !== null && frame.selected.length > 0 && frame.state.incident === null) {
-      // The view changed size (the panel folded) under a framing nobody moved since: frame again.
       const target = selectionCamera(frame.selected);
       if (target !== null) {
         active = null;
@@ -264,7 +236,6 @@ export function createGlobe(parent: Sel<HTMLDivElement>, env: Env, atlases: Glob
     requestDraw();
   }
 
-  // ------------------------------------------------------------------ animation loop
   function requestDraw(): void {
     dirty = true;
     if (loop === null) {
@@ -300,7 +271,6 @@ export function createGlobe(parent: Sel<HTMLDivElement>, env: Env, atlases: Glob
     }
     const wasMoving = moving;
     moving = active !== null || spinning() || dragging || wheeling !== null;
-    // When the motion stops, one more frame swaps the simplified geometry for the detailed one.
     if (dirty || (wasMoving && !moving)) {
       dirty = false;
       draw();
@@ -325,18 +295,10 @@ export function createGlobe(parent: Sel<HTMLDivElement>, env: Env, atlases: Glob
     return { lambda: camera.lambda, phi: Math.abs(camera.phi) > 35 ? 18 : camera.phi, k: worldZoom() };
   }
 
-  /**
-   * The whole globe fills the width of the view rather than its height: in a wide view the poles,
-   * where almost nothing happened, are cut, and the inhabited latitudes get the room.
-   */
   function worldZoom(): number {
     return Math.min(1.5, Math.max(1, (viewport.width * 0.47) / baseRadius(viewport)));
   }
 
-  /**
-   * Camera framing some countries: all of them when they fit in one view (pairwise less than about
-   * 100° apart), else the last one.
-   */
   function selectionCamera(iso3s: readonly string[]): Camera | null {
     const mains = iso3s.map((iso3) => places.get(iso3)).filter((p): p is Place => p !== undefined);
     const last = mains[mains.length - 1];
@@ -346,17 +308,13 @@ export function createGlobe(parent: Sel<HTMLDivElement>, env: Env, atlases: Glob
     return fitCamera(object, viewport, SELECTION_MARGIN);
   }
 
-  /**
-   * Semantic zoom: every change of the selection frames the selected countries, close enough for the
-   * organizations to show; emptying it returns to the whole globe. An opened incident is flown to.
-   */
   function syncCamera(f: Frame, immediate: boolean): void {
     const key = `${f.selected.join(',')}|${f.state.incident ?? ''}`;
     if (key === targetKey || viewport.width === 0) return;
     let target: Camera | null = null;
     if (f.state.incident !== null) {
       const found = files.find(f.state.incident);
-      if (found === undefined) return; // its file is still loading: next update retries
+      if (found === undefined) return;
       const c = found.set.file.columns;
       const base = selectionCamera([found.set.iso3]);
       target = clampCamera({ lambda: c.longitude[found.index] ?? 0, phi: c.latitude[found.index] ?? 0, k: Math.min(MAX_K, Math.max(camera.k, (base?.k ?? 8) * 6, 40)) });
@@ -372,7 +330,6 @@ export function createGlobe(parent: Sel<HTMLDivElement>, env: Env, atlases: Glob
     flyTo(target, immediate);
   }
 
-  // ------------------------------------------------------------------ fills
   function computeFills(f: Frame): Map<string, Fill> {
     const fills = new Map<string, Fill>();
     for (const iso3 of env.drawable) fills.set(iso3, f.colors.has(iso3) ? EXPLORED_LAND : LAND);
@@ -386,17 +343,9 @@ export function createGlobe(parent: Sel<HTMLDivElement>, env: Env, atlases: Glob
     return from === null || to === null || from === to ? to : interpolateRgb(from, to)(u);
   }
 
-  // ------------------------------------------------------------------ drawing
-  /**
-   * Two layers: the base (ocean, countries, borders, explored countries, incidents, labels) is kept
-   * in an offscreen canvas while the camera and the data stay the same; the hover layer (outline,
-   * links) is drawn over it, so hovering never redraws two hundred countries.
-   */
   const baseCanvas = doc.createElement('canvas');
   let baseKey = '';
   let baseVersion = 0;
-  // Canvas text does not wait for web fonts: once the shell's typeface is in, the labels are redrawn
-  // with it rather than left in the system face of the first paint (D23).
   void doc.fonts
     ?.load(`600 12px ${FONT}`)
     .then(() => {
@@ -427,7 +376,6 @@ export function createGlobe(parent: Sel<HTMLDivElement>, env: Env, atlases: Glob
     context.setTransform(1, 0, 0, 1, 0, 0);
     context.clearRect(0, 0, element.width, element.height);
     context.drawImage(baseCanvas, 0, 0);
-    // The previous incidents fade out over the new ones; a camera move ends the fade at once.
     const fade = (now() - fadeStart) / FADE_MS;
     if (fade < 1 && fadeCamera === cameraKey(element)) {
       context.globalAlpha = 1 - easeOut(fade);
@@ -460,7 +408,6 @@ export function createGlobe(parent: Sel<HTMLDivElement>, env: Env, atlases: Glob
     return `${camera.lambda}|${camera.phi}|${camera.k}|${element.width}x${element.height}`;
   }
 
-  /** Countries where an organization hovered in the panel acts, over the window. */
   function drawGroupCountries(context: CanvasRenderingContext2D, f: Frame, name: string): void {
     const g = model.indexOf('group', name);
     if (g < 0) return;
@@ -479,7 +426,6 @@ export function createGlobe(parent: Sel<HTMLDivElement>, env: Env, atlases: Glob
     context.stroke();
   }
 
-  /** A ring around an incident hovered in the panel, at whatever zoom. */
   function drawPreview(context: CanvasRenderingContext2D, eventId: string): void {
     const found = files.find(eventId);
     if (found === undefined) return;
@@ -496,7 +442,6 @@ export function createGlobe(parent: Sel<HTMLDivElement>, env: Env, atlases: Glob
     context.stroke();
   }
 
-  /** The simplified geometry at a low zoom or while moving across a region, the detailed one otherwise. */
   function layerFor(): Layer {
     if (coarse === null) return detail;
     return camera.k < 1.6 || (moving && camera.k < 4) ? coarse : detail;
@@ -527,8 +472,6 @@ export function createGlobe(parent: Sel<HTMLDivElement>, env: Env, atlases: Glob
     }
 
     const u = easeOut(Math.min(1, (now() - tweenStart) / COLOR_TWEEN_MS));
-    // One fill per colour rather than per country: the colours are quantized (computeFills), so a
-    // frame fills a few dozen paths instead of two hundred.
     const byFill = new Map<string, Shape[]>();
     for (const shape of layer.shapes) {
       if (geoDistance(centre, shape.centre) - shape.radius > reach) continue;
@@ -553,7 +496,6 @@ export function createGlobe(parent: Sel<HTMLDivElement>, env: Env, atlases: Glob
     context.lineWidth = camera.k > 4 ? 1 : 0.6;
     context.stroke();
 
-    // Explored countries: identity outline on a light halo, so it holds over any fill.
     for (const iso3 of f.selected) {
       const place = places.get(iso3);
       if (place === undefined) continue;
@@ -562,13 +504,11 @@ export function createGlobe(parent: Sel<HTMLDivElement>, env: Env, atlases: Glob
       context.strokeStyle = 'rgba(255, 255, 255, 0.95)';
       context.lineWidth = 4.5;
       context.stroke();
-      // Ink, not the identity colour: on the globe, colour now names the organizations.
       context.strokeStyle = INK;
       context.lineWidth = 2;
       context.stroke();
     }
 
-    // Cells near the limb would spill over the ink edge: the incident layer is clipped to the sphere.
     context.save();
     context.beginPath();
     path(SPHERE);
@@ -627,8 +567,6 @@ export function createGlobe(parent: Sel<HTMLDivElement>, env: Env, atlases: Glob
       return;
     }
     projectCells(cells);
-    // Three readings along the zoom (D25), with some hysteresis so that a zoom hovering around a
-    // threshold does not flicker: where (heat), who (territories and bubbles), how (one glyph each).
     const kpp = kmPerPixel(camera, viewport);
     const blobKm = HEAT_RADIUS * kpp;
     const dense = mode === 'points' ? inView.total > POINTS_MAX && blobKm > 6 : inView.total > POINTS_MAX * 0.8 && blobKm > 4;
@@ -640,7 +578,6 @@ export function createGlobe(parent: Sel<HTMLDivElement>, env: Env, atlases: Glob
       return;
     }
     projectPoints(f, from, centre, reach);
-    // The organizations are ranked in the selected countries, or else in the countries in view.
     groupColors.update(files, f.selected.length > 0 ? f.selected : countriesInView(), f.filters, f.state.range);
     if (mode === 'groups') {
       drawTerritories(context, f, 1);
@@ -651,7 +588,6 @@ export function createGlobe(parent: Sel<HTMLDivElement>, env: Env, atlases: Glob
     }
   }
 
-  /** Countries of the projected incidents, most incidents in view first (at most eight). */
   function countriesInView(): string[] {
     const counts = new Map<string, number>();
     for (let m = 0; m < placed.n; m++) {
@@ -664,11 +600,9 @@ export function createGlobe(parent: Sel<HTMLDivElement>, env: Env, atlases: Glob
       .map(([iso3]) => iso3);
   }
 
-  /** Weight of one projected incident on the territories: 1, its deaths or its wounded. */
   function incidentWeight(f: Frame): (m: number) => number {
     const metric = f.metric;
     const sum = metric.kind === 'count' ? null : metric.kind === 'mean' ? metric.of : metric.id;
-    // With a selection, the territories are those of the selected countries: the rest of the view recedes.
     const only = f.selected.length > 0 ? new Set(f.selected) : null;
     return (m) => {
       const set = placed.sets[m];
@@ -679,7 +613,6 @@ export function createGlobe(parent: Sel<HTMLDivElement>, env: Env, atlases: Glob
     };
   }
 
-  /** Who holds the ground: each place takes the colour of its leading organization. */
   function drawTerritories(context: CanvasRenderingContext2D, f: Frame, alpha: number): void {
     const classOf = (m: number): number => {
       const set = placed.sets[m];
@@ -690,10 +623,6 @@ export function createGlobe(parent: Sel<HTMLDivElement>, env: Env, atlases: Glob
     context.globalAlpha = 1;
   }
 
-  /**
-   * Over the territories, the leading organizations of each country in focus as bubbles: area for
-   * their incidents in view, a black arc for their share of suicide attacks.
-   */
   function drawBubbles(context: CanvasRenderingContext2D, f: Frame): void {
     const focus = f.selected.length > 0 ? new Set(f.selected) : new Set(countriesInView().slice(0, 6));
     bubbles = bubblesOf(placed.n, placed.xs, placed.ys, placed.sets, placed.index, groupColors, (iso3) => focus.has(iso3), focus.size === 1 ? 5 : 3);
@@ -741,7 +670,6 @@ export function createGlobe(parent: Sel<HTMLDivElement>, env: Env, atlases: Glob
     inView.total = total;
   }
 
-  /** The incidents themselves, for the countries that reach the view, deadliest first in each country. */
   function projectPoints(f: Frame, from: readonly string[], centre: [number, number], reach: number): void {
     const projector = new PointProjector(camera, viewport);
     const out: [number, number] = [0, 0];
@@ -783,7 +711,6 @@ export function createGlobe(parent: Sel<HTMLDivElement>, env: Env, atlases: Glob
     placed.n = m;
   }
 
-  /** The density of the metric's weight (incidents, deaths or wounded), blurred into heat. */
   function drawHeat(context: CanvasRenderingContext2D, f: Frame, c: Cells): void {
     const metric = f.metric;
     const sum = metric.kind === 'count' ? null : metric.kind === 'mean' ? metric.of : metric.id;
@@ -792,7 +719,6 @@ export function createGlobe(parent: Sel<HTMLDivElement>, env: Env, atlases: Glob
     heatMax = heat.max;
   }
 
-  /** Colours of the five most frequent attack types (validated order); the others share a grey. */
   const attackColors = new Map<string, string>(Object.entries(palette.attackTypes));
   const attackBySet = new WeakMap<IncidentSet, readonly string[]>();
 
@@ -802,10 +728,6 @@ export function createGlobe(parent: Sel<HTMLDivElement>, env: Env, atlases: Glob
     return colors[set.file.columns.attackType[i] ?? 0] ?? palette.other;
   }
 
-  /**
-   * One glyph per incident: colour for its organization (as on the territories) or its attack type,
-   * shape for its weapon, size for its deaths, a black ring for a suicide attack.
-   */
   function drawPoints(context: CanvasRenderingContext2D, f: Frame): void {
     const open = f.state.incident;
     const byAttack = f.state.ext['map.color'] === 'attack';
@@ -836,11 +758,6 @@ export function createGlobe(parent: Sel<HTMLDivElement>, env: Env, atlases: Glob
     if (ring !== null && open !== null) drawSelection(context, ring[0], ring[1], ring[2], open);
   }
 
-  /**
-   * The open incident: four corner marks, like a viewfinder. A ring would read as the black ring of
-   * a suicide attack; the marks are used for nothing else. Under a pile, its rank among the
-   * incidents at that spot (oldest first) is written above.
-   */
   function drawSelection(context: CanvasRenderingContext2D, x: number, y: number, r: number, open: string): void {
     const d = r + 7;
     const arm = Math.min(9, Math.max(5, d * 0.7));
@@ -882,7 +799,6 @@ export function createGlobe(parent: Sel<HTMLDivElement>, env: Env, atlases: Glob
   }
 
   function drawLabels(context: CanvasRenderingContext2D): void {
-    // Organizations and selected countries first, then the cities, which are the landmarks.
     const taken: [number, number, number, number][] = [];
     context.textAlign = 'center';
     context.textBaseline = 'middle';
@@ -913,8 +829,6 @@ export function createGlobe(parent: Sel<HTMLDivElement>, env: Env, atlases: Glob
         if (p != null) label(env.name(iso3).toUpperCase(), p[0], p[1] - 30, 700, 13, INK);
       }
     }
-    // There is no base map under the incidents: the most affected cities in view are the landmarks,
-    // placed on their busiest position (a name shared by two countries is not averaged).
     const c = cells;
     if (c === null || inView.n === 0) return;
     const cities = new Map<string, { x: number; y: number; n: number; best: number }>();
@@ -938,7 +852,6 @@ export function createGlobe(parent: Sel<HTMLDivElement>, env: Env, atlases: Glob
     for (const [city, entry] of top) label(city, entry.x, entry.y - 13, 500, 12, '#3b3a37');
   }
 
-  // ------------------------------------------------------------------ legend and hints
   function updateLegend(f: Frame): void {
     const km = Math.round(2 * HEAT_RADIUS * kmPerPixel(camera, viewport));
     const byAttack = f.state.ext['map.color'] === 'attack';
@@ -946,7 +859,6 @@ export function createGlobe(parent: Sel<HTMLDivElement>, env: Env, atlases: Glob
     if (key === legendKey) return;
     legendKey = key;
     legend.selectAll('*').remove();
-    // The keys stay in view; how to read them folds away, so the legend covers little of the map.
     let more: Sel<HTMLDetailsElement> | null = null;
     const note = (text: string): void => {
       if (more === null) {
@@ -1064,7 +976,6 @@ export function createGlobe(parent: Sel<HTMLDivElement>, env: Env, atlases: Glob
     }
   }
 
-  // ------------------------------------------------------------------ hit testing
   function countryAt(x: number, y: number): string | null {
     const radius = baseRadius(viewport) * camera.k;
     if (Math.hypot(x - viewport.width / 2, y - viewport.height / 2) > radius) return null;
@@ -1097,7 +1008,6 @@ export function createGlobe(parent: Sel<HTMLDivElement>, env: Env, atlases: Glob
 
   function bubbleAt(x: number, y: number): Bubble | null {
     if (mode !== 'groups') return null;
-    // Smallest last in the list: the one on top wins.
     for (let b = bubbles.length - 1; b >= 0; b--) {
       const bubble = bubbles[b];
       if (bubble !== undefined && Math.hypot(bubble.x - x, bubble.y - y) <= bubble.r + 4) return bubble;
@@ -1120,7 +1030,6 @@ export function createGlobe(parent: Sel<HTMLDivElement>, env: Env, atlases: Glob
     ]);
   }
 
-  /** What the territories hold around the pointer: the incidents within one blur radius, by organization. */
   function showTerritoryTooltip(event: PointerEvent, f: Frame, x: number, y: number, under: string | null): boolean {
     if (mode !== 'groups' || !territories.covers(x, y)) return false;
     const r2 = TERRITORY_RADIUS * TERRITORY_RADIUS * 2.25;
@@ -1150,7 +1059,6 @@ export function createGlobe(parent: Sel<HTMLDivElement>, env: Env, atlases: Glob
     return true;
   }
 
-  // ------------------------------------------------------------------ links (world level)
   function linksOf(f: Frame, iso3: string): Link[] {
     const c = model.countryOf(iso3);
     if (c < 0) return [];
@@ -1186,7 +1094,6 @@ export function createGlobe(parent: Sel<HTMLDivElement>, env: Env, atlases: Glob
       .map(([other, entry]) => ({ to: model.countryCodes[other] ?? '', weight: entry.weight, groups: entry.groups }));
   }
 
-  // ------------------------------------------------------------------ tooltips
   function countryLines(f: Frame, iso3: string): TooltipLine[] {
     const c = model.countryOf(iso3);
     const totals = model.totals(f.table, c < 0 ? [] : [c], f.state.range);
@@ -1255,7 +1162,6 @@ export function createGlobe(parent: Sel<HTMLDivElement>, env: Env, atlases: Glob
     ]);
   }
 
-  /** What the heat sums around the pointer: the incidents within one blur radius. */
   function showHeatTooltip(event: PointerEvent, f: Frame, x: number, y: number, under: string | null): boolean {
     const c = cells;
     if (c === null) return false;
@@ -1288,7 +1194,6 @@ export function createGlobe(parent: Sel<HTMLDivElement>, env: Env, atlases: Glob
     return true;
   }
 
-  // ------------------------------------------------------------------ pointer and keyboard
   const pointers = new Map<number, [number, number]>();
   let press: { x: number; y: number; moved: boolean } | null = null;
   let pinch: number | null = null;
@@ -1359,7 +1264,6 @@ export function createGlobe(parent: Sel<HTMLDivElement>, env: Env, atlases: Glob
     }, 2600) ?? null;
   }
 
-  /** The incidents of the placed points that lie inside the view (the placement keeps a margin around it). */
   function visibleSpots(): Spot[] {
     const spots: Spot[] = [];
     for (let n = 0; n < placed.n; n++) {
@@ -1372,11 +1276,6 @@ export function createGlobe(parent: Sel<HTMLDivElement>, env: Env, atlases: Glob
     return spots;
   }
 
-  /**
-   * An arrow key moves the open incident to its neighbour in the view (neighbour.ts), whatever the
-   * pointer can reach; with none open, it opens the incident nearest to the centre. The camera only
-   * moves when the incident ends up near an edge, and then by the distance that brings it back.
-   */
   function stepIncident(direction: Direction, leavePile: boolean): void {
     const f = frame;
     if (f === null) return;
@@ -1392,7 +1291,6 @@ export function createGlobe(parent: Sel<HTMLDivElement>, env: Env, atlases: Glob
       say(spots.length === 0 ? 'Aucun attentat dans la vue.' : `Aucun autre attentat ${side} dans la vue.`);
       return;
     }
-    // The move is made here, not by syncCamera, which would fly to the incident at a deep zoom.
     targetKey = `${f.selected.join(',')}|${target.id}`;
     store.set({ incident: target.id });
     const pile = spots.filter((s) => Math.hypot(s.x - target.x, s.y - target.y) <= PILE_PX);
@@ -1420,17 +1318,14 @@ export function createGlobe(parent: Sel<HTMLDivElement>, env: Env, atlases: Glob
       toggleGroup(bubble.name);
       return;
     }
-    // A click on the heat selects the country under it, like a click on the country.
     const iso3 = countryAt(x, y);
     if (iso3 === null) return;
-    // The second click of a double-click belongs to the zoom, not to the selection.
     const t = now();
     if (lastClick !== null && lastClick.iso3 === iso3 && t - lastClick.at < 350) return;
     lastClick = { iso3, at: t };
     if (!toggleCountry(store, iso3)) say(`${MAX_SELECTION} pays au plus : retirez-en un pour en ajouter un autre.`);
   }
 
-  /** Double-click on a country: frame it (and keep it selected); elsewhere, zoom in. */
   function onDoubleClick(x: number, y: number): void {
     const iso3 = countryAt(x, y);
     const place = iso3 === null ? undefined : places.get(iso3);
@@ -1440,13 +1335,11 @@ export function createGlobe(parent: Sel<HTMLDivElement>, env: Env, atlases: Glob
     }
     markInteracted();
     if (!selectedOf(store.get()).includes(iso3)) toggleCountry(store, iso3);
-    // Already inside the country: keep zooming where the pointer is.
     const fit = fitCamera(place.main, viewport);
     if (camera.k >= fit.k * 0.9) zoomBy(2, [x, y]);
     else flyTo(fit);
   }
 
-  /** Keeps only this organization everywhere, or removes it from the filter. */
   function toggleGroup(name: string): void {
     store.set((s) => {
       const current = s.filters.group ?? [];
@@ -1535,7 +1428,6 @@ export function createGlobe(parent: Sel<HTMLDivElement>, env: Env, atlases: Glob
       onDoubleClick(x, y);
     })
     .on('keydown', (event: KeyboardEvent) => {
-      // The arrows walk from incident to incident; the globe is turned with the pointer.
       const arrow = ARROWS[event.key];
       if (arrow !== undefined) {
         event.preventDefault();
@@ -1570,12 +1462,10 @@ export function createGlobe(parent: Sel<HTMLDivElement>, env: Env, atlases: Glob
   };
   canvas.node()?.addEventListener('wheel', onWheel, { passive: false });
 
-  // ------------------------------------------------------------------ update
   function update(next: Frame): void {
     const previous = frame;
     frame = next;
     baseVersion++;
-    // A new period or filter cross-fades the incidents (not the first frame, not without motion).
     const key = `${next.state.range.from}-${next.state.range.to}|${filtersKey(next.filters)}|${next.metric.id}`;
     const element = canvas.node();
     if (key !== incidentKey && previous !== null && !reducedMotion && mode !== 'none' && element != null && element.width > 0) {
@@ -1602,9 +1492,71 @@ export function createGlobe(parent: Sel<HTMLDivElement>, env: Env, atlases: Glob
       .html(iconLabel('close', next.selected.length > 1 ? `Tout désélectionner (${next.selected.length})` : 'Désélectionner'));
     updateStatus();
     canvas.attr('aria-label', describe(next));
+    updateRanking(next);
     updateHint(next);
     syncCamera(next, previous === null);
     requestDraw();
+  }
+
+  function updateRanking(f: Frame): void {
+    const inSelection = f.selected.length > 0;
+    if (inSelection) groupColors.update(files, f.selected, f.filters, f.state.range);
+    const population = f.display.perCapita
+      ? f.selected.reduce((sum, iso3) => sum + (env.population?.mean(iso3, f.state.range) ?? Number.NaN), 0)
+      : 0;
+    const groups = f.selectedIdx.length > 0 ? [...f.scan.combined.group] : [];
+    const top: { id: string; label: string; value: number; color: string | null }[] = inSelection
+      ? groups
+          .map(([group, totals]) => {
+            const name = model.dict.group[group] ?? '';
+            const raw = metricOf(totals, f.metric, f.covered);
+            const value = f.display.perCapita ? perMillion(raw, population) : raw;
+            return { id: `group:${group}`, label: categoryLabel('group', name), value, name, incidents: totals.incidents };
+          })
+          .filter((row) => row.name && isNamedGroup(row.name) && row.value > 0 && (f.metric.kind !== 'mean' || row.incidents >= MIN_INCIDENTS_FOR_MEAN))
+          .sort((a, b) => b.value - a.value || a.label.localeCompare(b.label, 'fr'))
+          .slice(0, 5)
+          .map(({ id, label, value, name }) => {
+            const slot = groupColors.names.indexOf(name);
+            return { id, label, value, color: groupColors.colorOf(slot < 0 ? groupColors.other : slot) };
+          })
+      : f.ranking.ordered.slice(0, 5).map((iso3) => ({ id: iso3, label: env.name(iso3), value: f.values.get(iso3) ?? Number.NaN, color: null }));
+    const key = JSON.stringify([inSelection, f.display.label, top]);
+    if (key === rankingKey) return;
+    rankingKey = key;
+
+    const items = rankingList.selectAll<HTMLLIElement, (typeof top)[number]>('li');
+    const positions = new Map<string, number>();
+    if (!reducedMotion) items.each(function (row) {
+      positions.set(row.id, this.getBoundingClientRect().top);
+      this.getAnimations().forEach((animation) => animation.cancel());
+    });
+    rankingTitle.text(inSelection ? 'Top 5 · Groupes' : 'Top 5 · Pays');
+    rankingMetric.text(`${f.metric.label}${f.display.perCapita ? ' / million d’hab.' : ''}`);
+    rankingEmpty.attr('hidden', top.length > 0 ? '' : null).text(inSelection ? 'Aucun groupe classé' : 'Aucun pays classé');
+    rankingList.attr('hidden', top.length === 0 ? '' : null);
+    const rows = items
+      .data(top, (row) => row.id)
+      .join((enter) => {
+        const row = enter.append('li');
+        row.append('span').attr('class', 'cv-map-ranking-name');
+        row.append('strong');
+        return row;
+      });
+    rows.select('.cv-map-ranking-name').text((row) => row.color === null ? row.label : shortName(row.label)).attr('title', (row) => row.label);
+    rows.select('strong').text((row) => f.display.format(row.value));
+    const max = top[0]?.value ?? 1;
+    rows.style('--cv-ranking-fill', (row) => String(row.value / max))
+      .style('--cv-ranking-color', (row) => row.color);
+    if (!reducedMotion) rows.each(function (row) {
+      const before = positions.get(row.id);
+      if (before === undefined) {
+        this.animate([{ opacity: 0 }, { opacity: 1 }], RANKING_MS);
+      } else {
+        const shift = before - this.getBoundingClientRect().top;
+        if (shift !== 0) this.animate([{ transform: `translateY(${shift}px)` }, { transform: 'translateY(0)' }], RANKING_MS);
+      }
+    });
   }
 
   function updateStatus(): void {
@@ -1658,19 +1610,16 @@ export function createGlobe(parent: Sel<HTMLDivElement>, env: Env, atlases: Glob
   };
 }
 
-/** Position of a value on the colour ramp: log1p for counts, four decades of log10 for rates. */
 export function rampPosition(v: number, max: number, rate: boolean): number {
   if (!(max > 0) || !(v > 0)) return 0;
   if (!rate) return Math.min(1, Math.log1p(v) / Math.log1p(max));
   return Math.min(1, Math.max(0, (Math.log10(v) - Math.log10(max)) / RATE_DECADES + 1));
 }
 
-/** "39,3 millions", "850 000". */
 function formatPopulation(n: number): string {
   return n >= 1e6 ? `${formatRate(n / 1e6)} millions` : formatCount(Math.round(n));
 }
 
-/** An organization's name short enough for a label on the map: its acronym when it has one. */
 function shortName(name: string): string {
   const acronym = /\(([^()]{2,12})\)\s*$/.exec(name)?.[1];
   if (acronym !== undefined) return acronym;
@@ -1697,7 +1646,6 @@ function buildLayer(atlas: CountryAtlas): Layer {
   return { shapes, borders, outlined: [] };
 }
 
-/** The simplified countries, plus the detailed shapes of the small countries they leave out (Bahrain, Malta…). */
 function hybridLayer(atlas: CountryAtlas, detail: Layer): Layer {
   const base = buildLayer(atlas);
   const present = new Set(atlas.countries.map((c) => c.properties.iso3));
