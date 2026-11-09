@@ -4,6 +4,8 @@ Application statique Vite + TypeScript + D3 v7. Quatre vues indépendantes (cart
 
 Les données ne sont jamais lues brutes par le navigateur : `preprocess/preprocess.py` lit une fois le CSV de la GTD et écrit des fichiers JSON agrégés dans `public/data/gtd/`, au format de `src/core/contracts.ts`.
 
+Le [rapport de conception](docs/rapport-visualisation.md) présente les personas, les scénarios, le pipeline de données et les choix de visualisation.
+
 ## Données : récupérer et générer
 
 Ni le CSV (`data/raw/`) ni les fichiers générés (`public/data/`) ne sont commités : chacun les produit après un clone.
